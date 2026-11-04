@@ -1,0 +1,65 @@
+import assert from 'node:assert/strict';
+import {spawn} from 'node:child_process';
+import {mkdir,rm,readFile,writeFile} from 'node:fs/promises';
+import {resolve,dirname,join,sep} from 'node:path';
+import {fileURLToPath} from 'node:url';
+const root=resolve(dirname(fileURLToPath(import.meta.url)),'..');
+const data=join(root,'artifacts','api-test-'+Date.now());await mkdir(data,{recursive:true});
+const dotnet=process.env.DOTNET_EXE||resolve(root,'../.tools/dotnet/dotnet.exe');
+const base='http://127.0.0.1:5082';let output='',passed=0;
+const child=spawn(dotnet,['bin/Debug/net10.0/LeadDesk.dll','--urls',base],{cwd:join(root,'server'),windowsHide:true,env:{...process.env,DOTNET_CLI_TELEMETRY_OPTOUT:'1',DOTNET_CLI_HOME:resolve(root,'../.tools/dotnet-home'),NUGET_PACKAGES:resolve(root,'../.tools/nuget'),Database__Provider:'Sqlite',Database__ConnectionString:'Data Source='+join(data,'test.db'),DataDirectory:data,Logging__LogLevel__Default:'Warning'}});
+child.stdout.on('data',b=>output+=b);child.stderr.on('data',b=>output+=b);
+async function req(path,{method='GET',body,status=200,headers={}}={}){
+ const r=await fetch(base+'/api'+path,{method,headers:{'Content-Type':'application/json','X-Lead-Desk':'1',...headers},body:body===undefined?undefined:JSON.stringify(body)});
+ const text=await r.text();let result;try{result=JSON.parse(text);}catch{result=text;}
+ assert.equal(r.status,status,`${method} ${path}: ${r.status} ${JSON.stringify(result)}`);return result;
+}
+async function check(name,fn){await fn();passed++;console.log('PASS '+name);}
+let admin,staff,lead;
+const input={name:'Test Founder',title:'Founder & CEO',company:'Test Company',city:'Mumbai',linkedInUrl:'https://www.linkedin.com/in/test-founder',email:'founder@example.test',categoryId:'dpdp',signal:'Asked for help',evidence:'Publicly requested compliance support',source:'Test fixture',sourceUrl:'https://example.test/post',stage:'New',ownerId:'',approved:false,doNotContact:false,isSample:false,checks:{identity:true,role:true,company:true,contact:true,signal:true}};
+const edit=l=>({...l,checks:Object.fromEntries(l.checks.map(c=>[c.kind,c.verified]))});
+try{
+ let ready=false;for(let i=0;i<80;i++){if(child.exitCode!==null)throw new Error('Server exited: '+output);try{const r=await fetch(base+'/api/health');if(r.ok){ready=true;break;}}catch{}await new Promise(r=>setTimeout(r,250));}assert.ok(ready,'Server startup failed: '+output);
+ await check('workspace opens immediately without an account or cookies',async()=>{const r=await req('/workspace',{user:'anonymous'});assert.equal(r.access,'open');admin=r.user;assert.equal(admin.role,'Admin');assert.equal(admin.passwordHash,undefined);assert.ok(admin.id);});
+ await check('workspace API reads do not require a login',async()=>{assert.ok(Array.isArray(await req('/leads',{user:'anonymous'})));assert.equal((await req('/settings',{user:'anonymous'})).inviteLimit,'15');});
+ await check('opening the workspace reuses a persistent owner',async()=>{assert.equal((await req('/workspace')).user.id,admin.id);assert.equal((await req('/staff')).length,1);});
+ await check('old login and password endpoints are removed',async()=>{for(const path of ['/auth/setup','/auth/login','/auth/logout','/auth/password'])await req(path,{method:'POST',body:{},status:404});await req('/auth/status',{status:404});});
+ await check('old session cookies are ignored',async()=>assert.equal((await req('/workspace',{headers:{Cookie:'LeadDesk.Session=invalid-old-session'}})).user.id,admin.id));
+ await check('CSRF header is still required',()=>req('/leads',{method:'POST',headers:{'X-Lead-Desk':''},body:input,status:403}));
+ await check('cross-origin mutations are still rejected',()=>req('/leads',{method:'POST',headers:{Origin:'https://untrusted.example'},body:input,status:403}));
+ await check('ten service categories seeded',async()=>assert.equal((await req('/categories')).length,10));
+ await check('lead scoring and manual verification are correct',async()=>{lead=await req('/leads',{method:'POST',body:input});assert.equal(lead.fitScore,100);assert.equal(lead.credibilityScore,100);assert.equal(lead.ownerId,admin.id);});
+ await check('URL canonicalization detects duplicate LinkedIn profiles',()=>req('/leads',{method:'POST',body:{...input,name:'Another name',email:'',company:'',linkedInUrl:'https://linkedin.com/in/TEST-FOUNDER/?trk=foo'},status:409}));
+ await check('email duplicates are skipped',()=>req('/leads',{method:'POST',body:{...input,name:'Different',linkedInUrl:'',company:'',email:'FOUNDER@example.test'},status:409}));
+ await check('dangerous profile URLs are rejected',()=>req('/leads',{method:'POST',body:{...input,name:'Unsafe',linkedInUrl:'javascript:alert(1)'},status:400}));
+ await check('lookalike LinkedIn hosts are rejected',()=>req('/leads',{method:'POST',body:{...input,name:'Unsafe',linkedInUrl:'https://linkedin.com.evil.test/in/profile'},status:400}));
+ await check('invalid emails rejected',()=>req('/leads',{method:'POST',body:{...input,email:'not-an-email'},status:400}));
+ await check('approval required before outreach',()=>req('/leads/'+lead.id+'/outreach',{method:'POST',body:{channel:'LinkedIn invite',subject:'',message:'Hello'},status:400}));
+ await check('invalid import is atomic',async()=>{const before=(await req('/leads')).length;await req('/leads/import',{method:'POST',body:[{...input,name:'Import good',company:'Other',email:'',linkedInUrl:''},{...input,name:''}],status:400});assert.equal((await req('/leads')).length,before);});
+ await check('duplicates within an import are skipped',async()=>{const r=await req('/leads/import',{method:'POST',body:[{...input,name:'Imported Contact',company:'Another',email:'import@example.test',linkedInUrl:''},{...input,name:'Imported Contact',company:'Another',email:'import@example.test',linkedInUrl:''}]});assert.equal(r.imported,1);assert.equal(r.duplicates,1);});
+ await check('imported leads start unapproved',async()=>assert.equal((await req('/leads')).find(l=>l.email==='import@example.test').approved,false));
+ await check('optimistic concurrency rejects stale updates',async()=>{lead=await req('/leads/'+lead.id,{method:'PUT',body:{...edit(lead),approved:true}});await req('/leads/'+lead.id,{method:'PUT',body:{...edit(lead),version:1},status:409});});
+ await check('persisted timestamps keep UTC offsets',async()=>{lead=await req('/leads/'+lead.id,{method:'PUT',body:{...edit(lead),followUpAt:'2026-11-05T05:00:00.000Z'}});const reloaded=await req('/leads/'+lead.id);assert.match(reloaded.createdAt,/Z$/);assert.equal(new Date(reloaded.followUpAt).toISOString(),'2026-11-05T05:00:00.000Z');lead=reloaded;});
+ await check('team members can be added without passwords',async()=>{staff=await req('/staff',{method:'POST',body:{name:'Test Staff',email:'staff@example.test'}});});
+ await check('leads assigned to team members remain editable in the shared workspace',async()=>{const own=await req('/leads',{method:'POST',body:{...input,name:'Staff Own Lead',company:'Staffco',email:'own@example.test',linkedInUrl:'',checks:{},ownerId:staff.id},user:'staff'});assert.equal(own.ownerId,staff.id);await req('/leads/'+own.id,{method:'PUT',body:{...edit(own),notes:'Staff note'},user:'staff'});});
+ await check('workspace owner cannot be deactivated',()=>req('/staff/'+admin.id+'/active',{method:'POST',body:{active:false},status:400}));
+ await check('secret settings are never returned in responses',async()=>{const r=await req('/settings',{method:'PUT',body:{geminiKey:'test-secret-not-real'}});assert.equal(r.geminiKeyConfigured,true);assert.equal(r.geminiKey,undefined);assert.ok(!JSON.stringify(r).includes('test-secret-not-real'));});
+ await check('secrets stored encrypted at rest',async()=>{const bytes=await readFile(join(data,'test.db'));assert.ok(!bytes.includes(Buffer.from('test-secret-not-real')));});
+ await check('credentials can be removed',async()=>{await req('/settings/secrets/geminiKey',{method:'DELETE'});assert.equal((await req('/integrations')).geminiConfigured,false);});
+ await check('AI clearly fails when no key is configured',()=>req('/ai/extract-leads',{method:'POST',body:{text:'A person'},status:503}));
+ await check('OAuth setup requires developer credentials',()=>req('/integrations/linkedin/start',{method:'POST',status:503}));
+ await check('OAuth rejects insecure callbacks',()=>req('/settings',{method:'PUT',body:{linkedinCallback:'http://localhost:5080/auth/linkedin/callback'},status:400}));
+ await check('OAuth callback rejects missing or forged state',async()=>{const r=await fetch(base+'/auth/linkedin/callback?state=forged&code=fake');assert.equal(r.status,400);});
+ await check('recorded invite limits enforced on server',async()=>{await req('/settings',{method:'PUT',body:{inviteLimit:'1'}});await req('/leads/'+lead.id+'/outreach',{method:'POST',body:{channel:'LinkedIn invite',subject:'',message:'Manually sent test invite'}});await req('/leads/'+lead.id+'/outreach',{method:'POST',body:{channel:'LinkedIn invite',subject:'',message:'Second invite'},status:429});lead=await req('/leads/'+lead.id);assert.equal(lead.stage,'Contacted');});
+ await check('do-not-contact blocks recorded outreach',async()=>{lead=await req('/leads/'+lead.id,{method:'PUT',body:{...edit(lead),doNotContact:true}});await req('/leads/'+lead.id+'/outreach',{method:'POST',body:{channel:'Email',subject:'',message:'Must not send'},status:400});});
+ await check('discovery builds encoded LinkedIn search links',async()=>{const links=await req('/discovery',{method:'POST',body:{titles:'Founder, CTO',keywords:'fintech',city:'India',network:'S',time:'week',removeSeekers:true,removeSellers:true}});const people=links.find(l=>l.name==='People');assert.equal(new URL(people.url).host,'www.linkedin.com');assert.match(decodeURIComponent(people.url),/fintech/);assert.match(decodeURIComponent(people.url),/NOT/);});
+ await check('saved searches persist and can be removed',async()=>{const s=await req('/searches',{method:'POST',body:{name:'Saved test search',criteria:{keywords:'fintech',city:'India'},monitor:false}});assert.ok((await req('/searches')).some(x=>x.id===s.id));await req('/searches/'+s.id,{method:'DELETE'});});
+ await check('trash can restore leads',async()=>{await req('/leads/'+lead.id,{method:'DELETE'});assert.ok(!(await req('/leads')).some(x=>x.id===lead.id));assert.ok((await req('/leads?trash=true')).some(x=>x.id===lead.id));await req('/leads/'+lead.id+'/restore',{method:'POST'});assert.ok((await req('/leads')).some(x=>x.id===lead.id));});
+ await check('permanent deletion removes linked history',async()=>{await req('/leads/'+lead.id,{method:'DELETE'});await req('/leads/'+lead.id+'/purge',{method:'DELETE'});assert.ok(!(await req('/outreach')).some(x=>x.leadId===lead.id));assert.ok(!(await req('/activity')).some(x=>x.leadId===lead.id));});
+ await check('CSV output neutralizes spreadsheet formulas',async()=>{await req('/leads',{method:'POST',body:{...input,name:'=HYPERLINK("bad")',email:'formula@example.test',linkedInUrl:'',company:'Formula test'}});const r=await fetch(base+'/api/export',{});assert.equal(r.status,200);assert.match(await r.text(),/'=HYPERLINK/);});
+ await check('sample leads are explicitly marked and cannot be contacted',async()=>{await req('/samples',{method:'POST'});let sample=(await req('/leads')).find(x=>x.isSample);sample=await req('/leads/'+sample.id,{method:'PUT',body:{...edit(sample),approved:true}});await req('/leads/'+sample.id+'/outreach',{method:'POST',body:{channel:'Email',subject:'',message:'No'},status:400});assert.equal((await req('/overview')).sampleCount,4);});
+ await check('deactivating a team member does not close the workspace',async()=>{await req('/staff/'+staff.id+'/active',{method:'POST',body:{active:false}});assert.equal((await req('/workspace')).user.id,admin.id);await req('/leads');});
+ console.log(`\n${passed} API checks passed.`);
+ await writeFile(join(root,'artifacts','api-test-result.json'),JSON.stringify({passed,at:new Date().toISOString(),database:'isolated SQLite',externalCalls:'none'},null,2));
+}catch(e){console.error(e);console.error(output.slice(-4000));process.exitCode=1;}
+finally{const stopped=new Promise(r=>child.once('exit',r));child.kill();await stopped;if(data.startsWith(join(root,'artifacts')+sep))await rm(data,{recursive:true,force:true});}

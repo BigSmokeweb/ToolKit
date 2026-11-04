@@ -1,0 +1,149 @@
+/* Secondary copy remains readable on the light surfaces. */
+.main-content .panel p,
+.main-content .panel small,
+.modal p,
+.modal small,
+.field small,
+.page-heading > div > p,
+.auth-form > p {
+  color: #75816e;
+}
+.panel .panel-heading p,
+.panel .daily-row small,
+.panel .connection-row small,
+.panel .watch-row small {
+  color: #7c8776;
+}
+.panel .category-option small,
+.panel .category-note,
+.panel .quality-filters > span,
+.panel .search-link-card p,
+.panel .search-link-card details,
+.panel .setup-guide p,
+.panel .usage-meter small {
+  color: #78886a;
+}
+.panel .category-option strong,
+.panel .search-link-card h3,
+.panel .saved-search-row strong,
+.panel .signal-list h3,
+.panel .watch-row strong {
+  color: #526c44;
+}
+.main-content .panel .empty p,
+.main-content .panel .empty h3,
+.modal .upload-zone > span,
+.modal .upload-zone small,
+.modal .mapping > p {
+  color: #75896a;
+}
+.panel .search-link-card code,
+.panel .stage-bars > div > span,
+.panel .progress-total,
+.panel .list-subbar,
+.leads-table .category-label,
+.leads-table .person-cell small,
+.leads-table .person-cell .company-line,
+.leads-table td .muted {
+  color: #778568;
+}
+.panel .ai-search label,
+.panel .ai-search small {
+  color: #82708f;
+}
+.panel .ai-search .button {
+  color: #79628c;
+}
+.main-content .panel .buying-signal p,
+.panel .buying-signal strong {
+  color: #73845e;
+}
+.modal .verification > p,
+.modal .verification-grid .check-line,
+.modal .verification-grid small,
+.modal .lead-profile p,
+.modal .lead-profile small {
+  color: #768b63;
+}
+.modal .lead-profile h2,
+.modal .modal-heading h2,
+.modal .lead-score > strong {
+  color: #4b713d;
+}
+.modal .info-box,
+.main-content .info-box {
+  color: #6f825d;
+}
+.main-content .small-note,
+.modal .small-note,
+.auth-note,
+.auth-footer {
+  color: #84917b;
+}
+.auth-form .field > span {
+  color: #627557;
+}
+.main-content .page-hint,
+.main-shell .page-footer {
+  color: #829074;
+}
+.sample-banner {
+  color: #8a7347;
+}
+.badge.neutral {
+  color: #67725f;
+}
+.sample-label {
+  color: #8c773f;
+}
+.auth-story > p {
+  color: #b5c9ac;
+}
+.welcome-panel p {
+  color: #b5cbb1;
+}
+.panel .spotlight p {
+  color: #758767;
+}
+.warning-box {
+  color: #96793f;
+}
+.error-box,
+.toast.error {
+  color: #9c634c;
+}
+.auth-art {
+  pointer-events: none;
+}
+@media (max-width: 760px) {
+  .daily-row .person {
+    min-width: 0;
+  }
+  .daily-row .person > strong {
+    white-space: normal;
+  }
+  .daily-row small {
+    max-width: 190px;
+  }
+  .daily-meta small {
+    font-size: 10px;
+  }
+  .stat-card > small {
+    font-size: 11px;
+  }
+  .form-grid.three .field {
+    min-width: 0;
+  }
+  .page-footer {
+    font-size: 10px;
+  }
+  .hero-visual {
+    opacity: 0.6;
+  }
+  .welcome-panel > div:first-child {
+    flex: 1.5;
+  }
+  .sample-label {
+    font-size: 8px;
+  }
+}

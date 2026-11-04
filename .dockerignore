@@ -1,0 +1,10 @@
+**/node_modules
+**/dist
+**/bin
+**/obj
+**/.data
+**/.tools
+**/.git
+**/appsettings.Local.json
+artifacts
+.env

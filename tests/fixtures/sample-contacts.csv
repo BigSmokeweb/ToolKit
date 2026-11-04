@@ -1,0 +1,3 @@
+Name,Job Title,Company,City,Email,Notes
+CSV Test Person,Founder,CSV Example Company,Mumbai,csv-person@example.test,Fictional record for testing the import preview only
+Second CSV Person,Head of Compliance,CSV Example Two,Pune,,Fictional record with no contact details

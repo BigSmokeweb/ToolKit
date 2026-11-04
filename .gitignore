@@ -1,0 +1,13 @@
+node_modules/
+client/dist/
+server/bin/
+server/obj/
+server/.data/
+server/appsettings.Local.json
+.env
+*.log
+*.db*
+artifacts/
+.vs/
+.tools/
+*.tsbuildinfo
