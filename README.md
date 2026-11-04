@@ -25,6 +25,27 @@ Omit `-NoBuild` after source changes. `scripts\Setup.ps1` installs a workspace-l
 
 The server runs in the terminal until Ctrl+C. It binds only to loopback by default. Data survives restarts in `server/.data/leaddesk.db`; keep the complete `.data` directory private and backed up.
 
+## One-click browser capture
+
+The `extension/` folder contains a Manifest V3 extension for Chrome and Edge. It captures **only text explicitly selected by the user** on a LinkedIn profile or individual post. It does not crawl pages, read cookies/passwords, or send LinkedIn messages. It is independent of the LinkedIn OAuth identity connection.
+
+1. Open **Settings → Integrations → Browser capture** in Lead Desk. Download the ZIP, or use this checkout's `extension` folder directly.
+2. In Chrome open `chrome://extensions` (Edge: `edge://extensions`), enable Developer mode, choose **Load unpacked**, and select the folder containing `manifest.json`. Install in the browser where you will view LinkedIn.
+3. Generate a one-time pairing code in Lead Desk. Paste it into the extension's setup page, choose `https://localhost:7443` (or the HTTP loopback fallback), and pair. The code expires after ten minutes and can be used only once. Generating another code invalidates the previous one. Keep the app running and its HTTPS certificate trusted.
+4. Pin the LD toolbar icon. Select a person's name, headline/company, location and relevant post text, then click LD. Alternatively, right-click that selection and choose **Save selected text to Lead Desk**. A result tab shows progress and the saved lead.
+5. Gemini suggests whether the person is a potential buyer, a professional partner or unclear, chooses a service category, and extracts fields supported by the selection. Source URL, evidence, fit score and an assessment are saved. Unknown contact details remain empty. Duplicates reopen the existing record. Newly captured leads are always **New**, **unapproved** and **unverified**. Review before outreach.
+
+Pairing is stored server-side as an encrypted credential with a hashed token and extension ID. The extension stores its token in trusted local extension storage, separate from the Gemini key and LinkedIn token. **Revoke access** in Lead Desk immediately disables that token. Capture-specific routes require the paired token and extension ID; ordinary website origins are rejected. The selection is sent to your local server and then your configured Gemini provider only when you invoke capture. Temporary capture results use extension session storage.
+
+`npm run build` packages eight whitelisted extension files into `client/public/downloads/lead-desk-capture.zip`, then Vite includes the ZIP in the app build. The generated ZIP is ignored by Git. No database, API key or runtime settings are packaged. The extension has been scoped to the two local demo addresses; hosted deployment requires a deliberate host-permission/configuration update.
+
+Additional checks:
+
+```powershell
+node --test extension/capture.test.mjs
+& E:\NLP\.tools\dotnet\dotnet.exe run --project tests/capture-checks/CaptureChecks.csproj
+```
+
 ## Add Gemini later
 
 1. Create a Gemini key in [Google AI Studio](https://aistudio.google.com/apikey). Check model access and your project's free-tier quota.
@@ -36,7 +57,7 @@ No API key is placed in React, browser storage or exported CSVs. Secret inputs a
 
 ## Connect your personal LinkedIn account later
 
-**You can already test LinkedIn search links without this connection.** OAuth adds the signed-in member's verified account identity. The app requests only `openid profile email`. It does not request posting access or implement automated LinkedIn messaging/invites/search scraping.
+**You can already test LinkedIn search links without this connection.** OAuth links basic profile information for the member who authorizes it. The app requests only `openid profile email`. It does not request posting access or implement automated LinkedIn messaging/invites/search scraping.
 
 1. Create an app in the [LinkedIn Developer Portal](https://www.linkedin.com/developers/apps). LinkedIn may require a company-page association for the developer app; the member who signs into the app can still be your personal account.
 2. Request **Sign In with LinkedIn using OpenID Connect** under Products.

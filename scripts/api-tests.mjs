@@ -15,7 +15,9 @@ async function req(path,{method='GET',body,status=200,headers={}}={}){
  assert.equal(r.status,status,`${method} ${path}: ${r.status} ${JSON.stringify(result)}`);return result;
 }
 async function check(name,fn){await fn();passed++;console.log('PASS '+name);}
-let admin,staff,lead;
+let admin,staff,lead,captureToken;
+const extensionId='a'.repeat(32);
+const extensionHeaders=()=>({'X-Lead-Desk-Extension':extensionId,'X-Lead-Desk-Capture':captureToken||'',Origin:'chrome-extension://'+extensionId});
 const input={name:'Test Founder',title:'Founder & CEO',company:'Test Company',city:'Mumbai',linkedInUrl:'https://www.linkedin.com/in/test-founder',email:'founder@example.test',categoryId:'dpdp',signal:'Asked for help',evidence:'Publicly requested compliance support',source:'Test fixture',sourceUrl:'https://example.test/post',stage:'New',ownerId:'',approved:false,doNotContact:false,isSample:false,checks:{identity:true,role:true,company:true,contact:true,signal:true}};
 const edit=l=>({...l,checks:Object.fromEntries(l.checks.map(c=>[c.kind,c.verified]))});
 try{
@@ -28,7 +30,20 @@ try{
  await check('CSRF header is still required',()=>req('/leads',{method:'POST',headers:{'X-Lead-Desk':''},body:input,status:403}));
  await check('cross-origin mutations are still rejected',()=>req('/leads',{method:'POST',headers:{Origin:'https://untrusted.example'},body:input,status:403}));
  await check('ten service categories seeded',async()=>assert.equal((await req('/categories')).length,10));
+ await check('browser capture starts unpaired',async()=>assert.equal((await req('/browser-capture')).paired,false));
+ await check('capture rejects an unpaired extension',()=>req('/browser-capture/status',{headers:extensionHeaders(),status:403}));
+ await check('ordinary websites cannot use extension routes',()=>req('/browser-capture/pair',{method:'POST',headers:{...extensionHeaders(),Origin:'https://untrusted.example'},body:{code:'fake',extensionId},status:403}));
+ await check('extension can pair with a one-time code',async()=>{const c=await req('/browser-capture/pairing-code',{method:'POST'});const r=await req('/browser-capture/pair',{method:'POST',headers:extensionHeaders(),body:{code:c.code,extensionId}});captureToken=r.token;assert.ok(captureToken.length>=32);await req('/browser-capture/pair',{method:'POST',headers:extensionHeaders(),body:{code:c.code,extensionId},status:403});});
+ await check('pairing status never exposes a token',async()=>{const s=await req('/browser-capture');assert.equal(s.paired,true);assert.equal(s.token,undefined);assert.ok(!JSON.stringify(s).includes(captureToken));await req('/browser-capture/status',{headers:extensionHeaders()});});
+ await check('pairing token is encrypted in storage',async()=>assert.ok(!(await readFile(join(data,'test.db'))).includes(Buffer.from(captureToken))));
+ await check('capture access is bound to the paired extension',()=>req('/browser-capture/status',{headers:{...extensionHeaders(),'X-Lead-Desk-Extension':'b'.repeat(32),Origin:'chrome-extension://'+'b'.repeat(32)},status:403}));
+ await check('extension cannot mutate ordinary settings cross-origin',()=>req('/settings',{method:'PUT',headers:extensionHeaders(),body:{inviteLimit:'999'},status:403}));
+ await check('capture rejects private message URLs',()=>req('/browser-capture/import',{method:'POST',headers:extensionHeaders(),body:{text:'A person at a business',sourceUrl:'https://www.linkedin.com/messaging/thread/123'},status:400}));
+ await check('capture requires source text rather than a URL alone',()=>req('/ai/prepare-lead',{method:'POST',body:{text:'https://www.linkedin.com/in/test-founder',sourceUrl:'https://www.linkedin.com/in/test-founder'},status:400}));
+ await check('capture reports missing AI setup before saving anything',()=>req('/browser-capture/import',{method:'POST',headers:extensionHeaders(),body:{text:'Test Founder at Test Company',sourceUrl:'https://www.linkedin.com/in/test-founder'},status:503}));
  await check('lead scoring and manual verification are correct',async()=>{lead=await req('/leads',{method:'POST',body:input});assert.equal(lead.fitScore,100);assert.equal(lead.credibilityScore,100);assert.equal(lead.ownerId,admin.id);});
+ await check('one-click capture reopens an existing profile without AI or duplicate rows',async()=>{const before=(await req('/leads')).length;const r=await req('/browser-capture/import',{method:'POST',headers:extensionHeaders(),body:{text:'Test Founder at Test Company',sourceUrl:input.linkedInUrl}});assert.equal(r.duplicate,true);assert.equal(r.lead.id,lead.id);assert.equal((await req('/leads')).length,before);});
+ await check('revoked capture tokens immediately stop working',async()=>{await req('/browser-capture/pairing',{method:'DELETE'});await req('/browser-capture/status',{headers:extensionHeaders(),status:403});assert.equal((await req('/browser-capture')).paired,false);});
  await check('URL canonicalization detects duplicate LinkedIn profiles',()=>req('/leads',{method:'POST',body:{...input,name:'Another name',email:'',company:'',linkedInUrl:'https://linkedin.com/in/TEST-FOUNDER/?trk=foo'},status:409}));
  await check('email duplicates are skipped',()=>req('/leads',{method:'POST',body:{...input,name:'Different',linkedInUrl:'',company:'',email:'FOUNDER@example.test'},status:409}));
  await check('dangerous profile URLs are rejected',()=>req('/leads',{method:'POST',body:{...input,name:'Unsafe',linkedInUrl:'javascript:alert(1)'},status:400}));

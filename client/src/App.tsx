@@ -139,6 +139,13 @@ export default function App() {
     if (workspace?.user) refresh().catch((e) => notify(e.message, true));
   }, [workspace?.user?.id, refresh, notify]);
   useEffect(() => {
+    const id = new URLSearchParams(location.search).get("lead");
+    if (id && data?.leads.some((l) => l.id === id)) {
+      setEditor(id);
+      history.replaceState(null, "", location.pathname + location.hash);
+    }
+  }, [data]);
+  useEffect(() => {
     const p = new URLSearchParams(location.search);
     if (p.has("linkedin")) {
       notify(

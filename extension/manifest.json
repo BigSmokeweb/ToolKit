@@ -1,0 +1,12 @@
+{
+  "manifest_version": 3,
+  "name": "Lead Desk Capture",
+  "description": "Save user-selected LinkedIn profile or post text to your paired local Lead Desk for AI classification and review.",
+  "version": "1.0.0",
+  "minimum_chrome_version": "120",
+  "permissions": ["activeTab", "scripting", "storage", "contextMenus"],
+  "host_permissions": ["https://localhost:7443/*", "http://127.0.0.1:5080/*"],
+  "background": {"service_worker": "background.js", "type": "module"},
+  "action": {"default_title": "Save selected LinkedIn text to Lead Desk"},
+  "options_ui": {"page": "options.html", "open_in_tab": true}
+}

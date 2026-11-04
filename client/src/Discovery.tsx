@@ -116,10 +116,16 @@ export default function Discovery({
           </h1>
           <p>A real business need is the beginning of a better conversation.</p>
         </div>
-        <Button variant="secondary" onClick={onImport}>
-          <FileInput size={16} />
-          Bring in the people you found
-        </Button>
+        <div className="actions">
+          <a className="button primary" href="/?setup=capture#settings">
+            Set up one-click capture
+            <ArrowUpRight size={15} />
+          </a>
+          <Button variant="secondary" onClick={onImport}>
+            <FileInput size={16} />
+            Paste text or import CSV
+          </Button>
+        </div>
       </div>
       <div className="discovery-layout">
         <aside className="panel category-sidebar">

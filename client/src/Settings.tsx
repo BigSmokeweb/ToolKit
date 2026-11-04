@@ -20,6 +20,7 @@ import type { Context } from "./App";
 import type { Settings, Staff } from "./types";
 import { api, post, put, del, date } from "./lib";
 import { Avatar, Badge, Button, External, Field, Select } from "./components";
+import BrowserCaptureSettings from "./BrowserCaptureSettings";
 export default function SettingsPage({ ctx }: { ctx: Context }) {
   const admin = ctx.user.role === "Admin";
   const [tab, setTab] = useState("integrations"),
@@ -223,7 +224,7 @@ export default function SettingsPage({ ctx }: { ctx: Context }) {
                 <Linkedin size={19} />
                 <span>
                   Search links already open using whichever LinkedIn account
-                  you’re signed into. Connecting here verifies your identity; it
+                  you’re signed into. Connecting here links your basic profile; it
                   does not unlock people search, contact harvesting, invites or
                   direct messages.
                 </span>
@@ -550,6 +551,7 @@ export default function SettingsPage({ ctx }: { ctx: Context }) {
               </details>
             </div>
           </section>
+          <BrowserCaptureSettings ctx={ctx} />
           <section className="panel integration-settings wide-panel">
             <div className="panel-heading">
               <div className="integration-title">

@@ -14,6 +14,8 @@ builder.Services.AddDataProtection().PersistKeysToFileSystem(new DirectoryInfo(P
 builder.Services.AddDbContext<DeskDb>(o => { var cs = builder.Configuration["Database:ConnectionString"]!; if (builder.Configuration["Database:Provider"]?.Equals("MySql", StringComparison.OrdinalIgnoreCase) == true) o.UseMySQL(cs); else o.UseSqlite(cs); });
 builder.Services.AddScoped<SettingsService>(); builder.Services.AddScoped<GeminiService>(); builder.Services.AddScoped<SignalService>(); builder.Services.AddHttpClient(); builder.Services.AddHostedService<MonitorWorker>();
 builder.Services.ConfigureHttpJsonOptions(o => o.SerializerOptions.PropertyNamingPolicy = JsonNamingPolicy.CamelCase);
+builder.Services.AddScoped<BrowserCaptureService>();
+builder.Services.AddScoped<CapturePreparationService>();
 builder.WebHost.ConfigureKestrel(o => o.Limits.MaxRequestBodySize = 2_000_000);
 var app = builder.Build();
 string workspaceOwnerId;
@@ -32,7 +34,23 @@ app.Use(async (ctx, next) =>
     ctx.Items["WorkspaceOwnerId"] = workspaceOwnerId;
     try
     {
-        if (ctx.Request.Path.StartsWithSegments("/api") && HttpMethods.IsPost(ctx.Request.Method) || ctx.Request.Path.StartsWithSegments("/api") && (HttpMethods.IsPut(ctx.Request.Method) || HttpMethods.IsDelete(ctx.Request.Method)))
+        var extensionRoute = BrowserCaptureService.IsExtensionRoute(ctx.Request.Path);
+        if (extensionRoute)
+        {
+            var origin = ctx.Request.Headers.Origin.ToString();
+            if (HttpMethods.IsOptions(ctx.Request.Method))
+            {
+                if (!origin.StartsWith("chrome-extension://") || !BrowserCaptureService.ExtensionIdValid(origin[19..])) throw new DeskError("Extension origin required.", 403);
+                ctx.Response.Headers.AccessControlAllowOrigin = origin;
+                ctx.Response.Headers.AccessControlAllowHeaders = "Content-Type, X-Lead-Desk-Extension, X-Lead-Desk-Capture";
+                ctx.Response.Headers.AccessControlAllowMethods = "POST, GET, OPTIONS";
+                ctx.Response.StatusCode = 204; return;
+            }
+            BrowserCaptureService.RequestExtension(ctx);
+            if (origin != "") { ctx.Response.Headers.AccessControlAllowOrigin = origin; ctx.Response.Headers.Vary = "Origin"; }
+            if (ctx.Request.Path != "/api/browser-capture/pair") await ctx.RequestServices.GetRequiredService<BrowserCaptureService>().Authorize(ctx);
+        }
+        if (!extensionRoute && ctx.Request.Path.StartsWithSegments("/api") && (HttpMethods.IsPost(ctx.Request.Method) || HttpMethods.IsPut(ctx.Request.Method) || HttpMethods.IsDelete(ctx.Request.Method)))
         {
             if (ctx.Request.Headers["X-Lead-Desk"] != "1") throw new DeskError("Invalid request. Refresh the app and try again.", 403);
             var origin = ctx.Request.Headers.Origin.ToString(); var same = ctx.Request.Scheme + "://" + ctx.Request.Host; var dev = app.Environment.IsDevelopment() && origin == "http://127.0.0.1:5173";
@@ -50,6 +68,38 @@ var leadGate = new SemaphoreSlim(1, 1);
 app.MapGet("/api/workspace", async (HttpContext c, DeskDb db) => new { user = Security.Public(await c.Staff(db)), access = "open" });
 app.MapGet("/auth/linkedin/callback", LinkedInOAuth.Callback);
 var api = app.MapGroup("/api");
+api.MapGet("/browser-capture", async (BrowserCaptureService capture) => await capture.Status());
+api.MapPost("/browser-capture/pairing-code", (BrowserCaptureService capture) => capture.NewCode());
+api.MapDelete("/browser-capture/pairing", async (HttpContext c, BrowserCaptureService capture) => { await capture.Revoke(c); return Results.Ok(new { ok = true }); });
+api.MapPost("/browser-capture/pair", async (PairInput input, HttpContext c, BrowserCaptureService capture) => await capture.Pair(input, c));
+api.MapGet("/browser-capture/status", () => new { paired = true });
+api.MapPost("/ai/prepare-lead", async (CaptureInput input, HttpContext c, CapturePreparationService capture) => await capture.Prepare(input, c.UserId()));
+api.MapPost("/browser-capture/import", async (CaptureInput input, HttpContext c, DeskDb db, SettingsService settings, CapturePreparationService capture) =>
+{
+    CaptureRules.Validate(input);
+    var actor = await c.Staff(db);
+    // A known profile can be reopened without consuming another AI request.
+    if (input.SourceUrl != "" && new Uri(input.SourceUrl).AbsolutePath.StartsWith("/in/"))
+    {
+        var profile = Leads.Url(input.SourceUrl, true);
+        var match = await db.Leads.Include(x => x.Checks).FirstOrDefaultAsync(x => x.DeletedAt == null && x.LinkedInUrl == profile);
+        if (match != null) return Results.Ok(new { lead = match, duplicate = true, relationship = "existing", assessment = "This profile is already in your pipeline." });
+    }
+    var prepared = await capture.Prepare(input, actor.Id);
+    await leadGate.WaitAsync();
+    try
+    {
+        var existing = await db.Leads.Include(x => x.Checks).Where(x => x.DeletedAt == null).ToListAsync();
+        var duplicate = existing.FirstOrDefault(l => CaptureRules.Duplicate(l, prepared.Lead));
+        if (duplicate != null) return Results.Ok(new { lead = duplicate, duplicate = true, prepared.Relationship, prepared.Assessment });
+        var lead = new Lead();
+        Leads.Apply(lead, prepared.Lead with { OwnerId = actor.Id }, actor.Id, await settings.Get("targetCities"));
+        db.Leads.Add(lead); Leads.Audit(db, actor.Id, "Captured lead from selected LinkedIn text", lead.Id);
+        await db.SaveChangesAsync();
+        return Results.Ok(new { lead, duplicate = false, prepared.Relationship, prepared.Assessment });
+    }
+    finally { leadGate.Release(); }
+});
 api.AddEndpointFilter(async (context, next) => { await context.HttpContext.Staff(context.HttpContext.RequestServices.GetRequiredService<DeskDb>()); return await next(context); });
 api.MapGet("/staff", async (DeskDb db) => await db.Staff.Select(s => new { s.Id, s.Name, s.Email, s.Role, s.Active }).ToListAsync());
 api.MapPost("/staff", async (StaffRequest i, HttpContext c, DeskDb db) => { var actor = await c.Admin(db); ValidatePerson(i.Name, i.Email); var email = Security.Email(i.Email, true); if (await db.Staff.AnyAsync(x => x.Email == email)) throw new DeskError("That email is already registered.", 409); var s = new Staff { Name = i.Name.Trim(), Email = email, Role = "Staff" }; db.Staff.Add(s); Leads.Audit(db, actor.Id, "Added team member", detail: s.Name); await db.SaveChangesAsync(); return Results.Ok(Security.Public(s)); });

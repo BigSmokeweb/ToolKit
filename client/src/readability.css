@@ -1,4 +1,37 @@
 /* Secondary copy remains readable on the light surfaces. */
+.capture-steps {
+  padding-left: 20px;
+  color: #6d7c61;
+  font-size: 12px;
+  line-height: 1.9;
+  margin-bottom: 22px;
+}
+.capture-steps li {
+  margin-bottom: 12px;
+}
+.capture-steps code {
+  font-size: 11px;
+  background: #f3f6ed;
+  padding: 2px 5px;
+  border-radius: 4px;
+}
+.pairing-code {
+  padding: 16px;
+  background: #f6f9ef;
+  border: 1px solid #e0ead4;
+  border-radius: 8px;
+  margin-top: 18px;
+  max-width: 650px;
+}
+.pairing-code > strong {
+  font-size: 11px;
+  color: #6d835a;
+}
+.pairing-code small {
+  font-size: 10px;
+  line-height: 1.8;
+  display: block;
+}
 .main-content .panel p,
 .main-content .panel small,
 .modal p,

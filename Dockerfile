@@ -3,6 +3,7 @@ WORKDIR /src/client
 COPY client/package*.json ./
 RUN npm ci --no-audit --no-fund
 COPY client/ ./
+COPY extension/ /src/extension/
 RUN npm run build
 FROM mcr.microsoft.com/dotnet/sdk:10.0 AS backend
 WORKDIR /src

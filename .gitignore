@@ -11,3 +11,6 @@ artifacts/
 .vs/
 .tools/
 *.tsbuildinfo
+tests/**/bin/
+tests/**/obj/
+client/public/downloads/*.zip
