@@ -2,6 +2,20 @@
 
 A working React + ASP.NET Core 10 application based on the supplied Claude artifact and implementation roadmap. Gemini is the AI provider. The app opens directly as one shared workspace, with no app login or password setup. New workspaces start with no real leads and no API keys.
 
+## Public live showcase
+
+Run `scripts\Start-Showcase.ps1` after building and starting the local app. Requires Node 22+ (with `node:sqlite`), .NET 10 and an internet connection. The script downloads the official Cloudflare tunnel binary if needed and prints a public HTTPS URL. This is a temporary demonstration link: keep this computer awake; restarting the tunnel creates a different address. It is not permanent production hosting.
+
+The showcase starts a separate .NET instance at `http://127.0.0.1:5084`, with a new database under ignored `artifacts/showcase-data`. It copies only the encrypted integration credentials, encryption key ring and the connected LinkedIn identity. **Existing leads, searches, messages, team members, audit activity and AI history are not copied.** Showcase records persist independently between restarts. Your original workspace at `https://localhost:7443` remains unchanged. Integration changes in the original workspace are not automatically synchronized into an existing showcase.
+
+Anyone with the public link can add, edit and remove showcase leads, use search generation and real Gemini, and see other visitors’ showcase records. Gemini usage consumes the same Google project quota; the showcase caps requests at 30/day and the gateway additionally limits AI calls to six/minute. Keys and tokens stay server-side. The public gateway blocks credential settings, LinkedIn reconnection/disconnection, pairing-code creation, team administration and permanent purging. LinkedIn provides account identity only; it does not grant prospect scraping or automatic messaging.
+
+For browser capture, download the ZIP from the showcase’s **Settings**, load it unpacked in Chrome/Edge, and enter the exact showcase origin in the extension options. Generate its one-time code from the **local showcase controls at `http://127.0.0.1:5084/#settings`**, then pair. Approve Chrome/Edge’s permission request for that exact showcase host. This pairing is separate from the original workspace pairing; each workspace supports one paired extension at a time. A new tunnel URL requires updating the extension address.
+
+Stop public access with `scripts\Stop-Showcase.ps1`. It stops only the recorded showcase app, gateway and tunnel processes; saved showcase data and original local integrations remain in place. Process IDs and start times are checked before stopping. Runtime databases, encryption keys, tunnel logs and public-link state are ignored by Git and must never be published.
+
+Check gateway and workspace isolation with `node --test scripts/share-server.test.mjs scripts/prepare-showcase.test.mjs extension/capture.test.mjs`.
+
 ## Test now
 
 Open **http://127.0.0.1:5080** while the server is running. The dashboard opens immediately. There is no Lead Desk account to create. LinkedIn sign-in is only needed when you choose to use LinkedIn itself or connect its identity integration.

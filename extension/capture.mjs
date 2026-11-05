@@ -10,7 +10,9 @@ export function capturePayload(text, pageUrl) {
   return {text,sourceUrl:url.origin+url.pathname};
 }
 export function appUrl(value) {
-  if(!APP_URLS.includes(value))throw new Error('Choose one of the local Lead Desk addresses.');
+  let remote;
+  try {const u=new URL(value);remote=u.protocol==='https:'&&/^[a-z0-9-]+\.trycloudflare\.com$/.test(u.hostname)&&!u.port&&!u.username&&!u.password&&u.pathname==='/'&&!u.search&&!u.hash&&value===u.origin;}catch{}
+  if(!APP_URLS.includes(value)&&!remote)throw new Error('Enter the local Lead Desk address or the exact HTTPS showcase origin (without a trailing slash).');
   return value;
 }
 export async function request(base,path,body,token,extensionId) {

@@ -6,7 +6,9 @@ status.textContent=saved.token?'A pairing is saved in this browser. Use Check co
 document.querySelector('#pair-form').addEventListener('submit',async event=>{
   event.preventDefault();pair.disabled=true;status.textContent='Pairing…';
   try {
-    const origin=appUrl(base.value),result=await request(origin,'pair',{code:code.value.trim(),extensionId:chrome.runtime.id},null,chrome.runtime.id);
+    const origin=appUrl(base.value.trim());
+    if(origin.endsWith('.trycloudflare.com')&&!await chrome.permissions.request({origins:[origin+'/*']}))throw new Error('Allow access to this showcase address to pair the extension.');
+    const result=await request(origin,'pair',{code:code.value.trim(),extensionId:chrome.runtime.id},null,chrome.runtime.id);
     await chrome.storage.local.set({base:origin,token:result.token});code.value='';
     status.textContent='Paired. Pin the LD icon. Select the relevant LinkedIn text, then click LD to save a lead.';
   }catch(error){status.textContent=error.message||'Connection failed. Check the app and trusted localhost certificate.';}finally{pair.disabled=false;}
