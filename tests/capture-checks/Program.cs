@@ -29,18 +29,24 @@ Check("lookalike domains cannot be captured", () => Reject(() => CaptureRules.Va
 Check("extension origins are strictly constrained", () => Assert(BrowserCaptureService.ExtensionIdValid(new string('a', 32)) && !BrowserCaptureService.ExtensionIdValid("bad") && !BrowserCaptureService.ExtensionIdValid(new string('z', 32))));
 Check("repeat captures from a post deduplicate even without a company", () => Assert(CaptureRules.Duplicate(new Lead { Name = "Priya Demo", SourceUrl = "https://www.linkedin.com/feed/update/urn:li:activity:123" }, new LeadInput(Name: "Priya Demo", SourceUrl: "https://www.linkedin.com/feed/update/urn:li:activity:123"))));
 Check("different people in the same post remain separate", () => Assert(!CaptureRules.Duplicate(new Lead { Name = "Priya Demo", SourceUrl = "https://www.linkedin.com/feed/update/urn:li:activity:123" }, new LeadInput(Name: "Another Person", SourceUrl: "https://www.linkedin.com/feed/update/urn:li:activity:123"))));
-Check("people queries cover all roles and topics with bounded Boolean combinations", () => {
-    var queries = Discovery.PeopleQueries(new(Titles: "CTO, Founder, Data Protection Officer, CISO, Head of Compliance", Keywords: "SaaS, fintech, healthtech"));
-    Assert(queries.Length == 6);
-    foreach (var term in new[] { "CTO", "Founder", "Data Protection Officer", "CISO", "Head of Compliance", "SaaS", "fintech", "healthtech" }) Assert(queries.Any(q => q.Contains(term)));
-    Assert(queries.All(q => System.Text.RegularExpressions.Regex.Matches(q, @"\bOR\b").Count <= 2 && !q.Contains("NOT")));
-    Assert(queries[0] == "(CTO OR Founder) (SaaS OR fintech)");
+Check("People recommendation selects service decision-makers from the entire list", () => {
+    var query = Discovery.PeopleQuery(new(Titles: "Data Protection Officer, Head of Compliance, CISO, Founder, CTO", Keywords: "healthtech, fintech, SaaS", CategoryId: "dpdp"));
+    Assert(query == "(CTO OR Founder) (SaaS OR fintech)");
+    Assert(System.Text.RegularExpressions.Regex.Matches(query, @"\bOR\b").Count <= 2 && !query.Contains("NOT"));
 });
-Check("people searches deduplicate terms and quote multiword roles", () => {
-    var queries = Discovery.PeopleQueries(new(Titles: "CTO, cto, Head of Compliance", Keywords: "SaaS"));
-    Assert(queries.Length == 1 && queries[0] == "(CTO OR \"Head of Compliance\") SaaS");
+Check("People recommendation follows the selected service", () => {
+    Assert(Discovery.PeopleQuery(new(Titles: "CTO, COO, Procurement Head, Head of HR", Keywords: "operations", CategoryId: "contracts")) == "(\"Head of HR\" OR \"Procurement Head\") operations");
 });
-Check("large keyword lists are rejected instead of silently discarding terms", () => Reject(() => Discovery.PeopleQueries(new(Titles: string.Join(',', Enumerable.Range(1,21).Select(i => "Role" + i))))));
+Check("custom searches preserve entered priority and quote multiword roles", () => {
+    Assert(Discovery.PeopleQuery(new(Titles: "CTO, cto, Head of Compliance", Keywords: "SaaS")) == "(CTO OR \"Head of Compliance\") SaaS");
+    Assert(Discovery.PeopleQuery(new(Titles: "Architect, Designer, Founder", Keywords: "sustainable design, interiors")) == "(Architect OR Designer) (\"sustainable design\" OR interiors)");
+});
+Check("People recommendation has sensible empty-field fallbacks", () => {
+    Assert(Discovery.PeopleQuery(new()) == "Founder");
+    Assert(Discovery.PeopleQuery(new(Keywords: "fintech")) == "fintech");
+    Assert(Discovery.PeopleQuery(new(Titles: "Founder", CompanyType: "SaaS")) == "Founder SaaS");
+});
+Check("large keyword lists are rejected before recommendation", () => Reject(() => Discovery.PeopleQuery(new(Titles: string.Join(',', Enumerable.Range(1,21).Select(i => "Role" + i))))));
 Check("draft context includes captured profile details and source notes", () => {
     var lead = new Lead { Name = "Asha Test", Title = "Website Developer", Company = "Example Co", City = "Mumbai", Notes = "Builds accessible React applications", SourceUrl = "https://www.linkedin.com/search/results/people/" };
     OutreachDrafting.Validate(lead, "LinkedIn message");

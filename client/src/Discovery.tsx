@@ -39,7 +39,6 @@ export default function Discovery({
       return { ...emptyCriteria, ...c, categoryId: c.id };
     }),
     [links, setLinks] = useState<SearchLink[]>([]),
-    [peopleVariant, setPeopleVariant] = useState(0),
     [saved, setSaved] = useState<SavedSearch[]>([]),
     [prompt, setPrompt] = useState(""),
     [busy, setBusy] = useState(false),
@@ -63,7 +62,6 @@ export default function Discovery({
         .then((l) => {
           if (alive) {
             setLinks(l);
-            setPeopleVariant(0);
             setLinkError("");
           }
         })
@@ -382,10 +380,9 @@ export default function Discovery({
                 <div>
                   <h2>Open a search. Start exploring.</h2>
                   <p>
-                    Start with People. If LinkedIn shows no matches, use People
-                    · broader search. People searches combine multiple roles and
-                    keywords. Switch combinations to cover all entered terms,
-                    then refine filters inside LinkedIn.
+                    Open People to use the recommended search. Lead Desk selects
+                    focused roles and industry keywords from your criteria and
+                    service automatically.
                   </p>
                 </div>
               </div>
@@ -413,39 +410,14 @@ export default function Discovery({
                         <div>
                           <h3>{l.name}</h3>
                           <p>{l.description}</p>
-                          {!!l.variants?.length && l.variants.length > 1 && (
-                            <label className="people-combinations">
-                              <span>
-                                Keyword combination · {l.variants.length}{" "}
-                                available
-                              </span>
-                              <Select
-                                aria-label="People keyword combination"
-                                value={peopleVariant}
-                                onChange={(e) =>
-                                  setPeopleVariant(Number(e.target.value))
-                                }
-                              >
-                                {l.variants.map((variant, index) => (
-                                  <option key={variant.query} value={index}>
-                                    {variant.label}
-                                  </option>
-                                ))}
-                              </Select>
-                            </label>
-                          )}
                         </div>
-                        <External
-                          className="open-search"
-                          href={l.variants?.[peopleVariant]?.url || l.url}
-                        >
+                        <External className="open-search" href={l.url}>
                           Open
                         </External>
                         <details>
                           <summary>View search query</summary>
                           <code>
-                            {l.variants?.[peopleVariant]?.query ||
-                              l.query ||
+                            {l.query ||
                               "Add keywords above to narrow this search."}
                           </code>
                         </details>

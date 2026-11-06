@@ -166,20 +166,6 @@
   font-size: 12px;
   line-height: 1.8;
 }
-.people-combinations {
-  display: block;
-  margin-top: 14px;
-}
-.people-combinations > span {
-  display: block;
-  font-size: 11px;
-  color: #7b8b6b;
-  margin-bottom: 7px;
-}
-.people-combinations select {
-  max-width: 100%;
-  font-size: 12px;
-}
 .search-link-card > div {
   min-width: 0;
 }
@@ -228,9 +214,6 @@
   .capture-install {
     min-width: 0;
     width: 100%;
-  }
-  .people-combinations select {
-    font-size: 11px;
   }
 }
 .capture-steps {

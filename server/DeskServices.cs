@@ -71,13 +71,35 @@ public static class Discovery
         var list = terms.Where(x => x != "").Select(x => x.Contains(' ') ? "\"" + x + "\"" : x).ToArray();
         return list.Length > 1 ? "(" + string.Join(" OR ", list) + ")" : list.FirstOrDefault() ?? "";
     }
-    public static string[] PeopleQueries(SearchCriteria criteria)
+    static string[] Recommend(string[] terms, string[] priorities)
     {
-        var roles = Terms(criteria.Titles); var topics = Terms(criteria.Keywords);
-        // Every entered term is covered without creating a long, restrictive Boolean query.
-        var roleGroups = (roles.Length == 0 ? new[] { "" } : roles).Chunk(2);
-        var topicGroups = (topics.Length == 0 ? new[] { "" } : topics).Chunk(2).ToArray();
-        return roleGroups.SelectMany(r => topicGroups.Select(t => string.Join(' ', new[] { Group(r), Group(t) }.Where(x => x != "")))).Select(q => q == "" ? "Founder" : q).ToArray();
+        int Rank(string term) { var match = Array.FindIndex(priorities, p => Regex.IsMatch(term, p, RegexOptions.IgnoreCase)); return match < 0 ? priorities.Length : match; }
+        // Consider the whole list, favor service decision-makers, then keep the query focused.
+        // Stable ordering preserves the user's priority for custom roles and tied matches.
+        return terms.OrderBy(Rank).Take(2).ToArray();
+    }
+    public static string PeopleQuery(SearchCriteria criteria)
+    {
+        var roles = Terms(criteria.Titles);
+        var topics = Terms(string.IsNullOrWhiteSpace(criteria.Keywords) ? criteria.CompanyType : criteria.Keywords);
+        string[] rolePriority = criteria.CategoryId switch
+        {
+            "dpdp" => [@"\bcto\b|chief technology", @"\bfounder\b|\bceo\b", @"data protection|\bdpo\b", @"\bciso\b|compliance"],
+            "contracts" => [@"\bhr\b|human resources", @"procurement", @"\bcoo\b|operations"],
+            "professionals" => [@"lawyer|advocate|counsel", @"chartered accountant|\bca\b", @"company secretary|\bcs\b"],
+            "trademark" => [@"\bfounder\b|\bceo\b", @"brand|marketing"],
+            "funded" => [@"\bfounder\b|\bceo\b", @"\bcfo\b|finance"],
+            "virtual-counsel" or "protection" or "exit" or "closure" => [@"\bfounder\b|\bceo\b", @"director|owner", @"\bcfo\b|\bcoo\b"],
+            _ => []
+        };
+        string[] topicPriority = criteria.CategoryId switch
+        {
+            "dpdp" => [@"\bsaas\b", @"fintech", @"healthtech", @"edtech"],
+            "trademark" => [@"\bd2c\b", @"ecommerce|e-commerce", @"consumer|brand"],
+            _ => []
+        };
+        var query = string.Join(' ', new[] { Group(Recommend(roles, rolePriority)), Group(Recommend(topics, topicPriority)) }.Where(x => x != ""));
+        return query == "" ? "Founder" : query;
     }
     static string Or(string v) => string.Join(" OR ", v.Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries).Select(x => x.Contains(' ') ? "\"" + x.Replace("\"", "") + "\"" : x));
     public static object[] Links(SearchCriteria c)
@@ -87,14 +109,11 @@ public static class Discovery
         string Q(string x) => Uri.EscapeDataString(x); var network = c.Network is "F" or "S" or "O" ? "&network=" + Q("[\"" + c.Network + "\"]") : ""; var geo = c.City.Equals("India", StringComparison.OrdinalIgnoreCase) ? "&geoUrn=%5B%22102713980%22%5D" : "";
         var time = c.Time == "day" ? "past-24h" : c.Time == "month" ? "past-month" : "past-week"; var secs = c.Time == "day" ? 86400 : c.Time == "month" ? 2592000 : 604800; var p = Or(c.Phrases); if (p == "") p = Or(c.Keywords); var positive = string.Join(' ', new[] { titles != "" ? $"({titles})" : "", keys != "" ? $"({keys})" : "" }.Where(x => x != "")); var google = "site:linkedin.com/in " + positive + " " + c.City + " " + string.Join(' ', excludes.Select(x => "-" + (x.Contains(' ') ? "\"" + x + "\"" : x)));
         object Link(string name, string type, string description, string q, string url) => new { name, type, description, query = q, url };
-        var peopleQueries = PeopleQueries(c);
-        var broadQuery = Terms(c.Titles).FirstOrDefault() ?? Terms(c.Keywords).FirstOrDefault() ?? "Founder";
+        var peopleQuery = PeopleQuery(c);
         var peopleLocation = geo == "" && !string.IsNullOrWhiteSpace(c.City) ? " " + c.City : "";
         string PeopleUrl(string q) => "https://www.linkedin.com/search/results/people/?keywords=" + Q(q + peopleLocation) + geo + "&origin=GLOBAL_SEARCH_HEADER";
-        var variants = peopleQueries.Select((q, i) => new { label = "Combination " + (i + 1) + ": " + q, query = q + peopleLocation, url = PeopleUrl(q) }).ToArray();
         return [
-         new { name = "People", type = "LinkedIn", description = "Search multiple roles and keywords together. Switch combinations to cover every entered term.", query = peopleQueries[0] + peopleLocation, url = PeopleUrl(peopleQueries[0]), variants },
-         Link("People · broader search","LinkedIn","If results are empty, search by role only across all locations and connections.",broadQuery,"https://www.linkedin.com/search/results/people/?keywords="+Q(broadQuery)+"&origin=GLOBAL_SEARCH_HEADER"),
+         Link("People", "LinkedIn", "Recommended roles and industry keywords, selected automatically for your search.", peopleQuery + peopleLocation, PeopleUrl(peopleQuery)),
    Link("Recent posts","LinkedIn","Find people talking about the need now",p,"https://www.linkedin.com/search/results/content/?keywords="+Q(p)+"&datePosted="+Q("\""+time+"\"")+"&sortBy=%22date_posted%22"),
    Link("Hiring signals","LinkedIn","Companies hiring for the problem you solve",c.Jobs,"https://www.linkedin.com/jobs/search/?keywords="+Q(c.Jobs)+"&location="+Q(c.City)+"&f_TPR=r"+secs),
    Link("Companies","LinkedIn","Find accounts, then review their People tab",keys,"https://www.linkedin.com/search/results/companies/?keywords="+Q(keys)+"&origin=FACETED_SEARCH"+(c.Size!=""?"&companySize="+Q("[\""+c.Size+"\"]"):"")),
