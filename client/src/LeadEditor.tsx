@@ -611,7 +611,8 @@ export default function LeadEditor({
             )}
             <Field label={channel === "Call" ? "Call notes" : "Your message"}>
               <textarea
-                rows={9}
+                className="outreach-message"
+                rows={3}
                 value={message}
                 maxLength={10000}
                 onChange={(e) => {

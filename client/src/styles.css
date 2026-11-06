@@ -2392,6 +2392,12 @@ td {
 .outreach-editor .field {
   margin-top: 18px;
 }
+.outreach-editor .outreach-message {
+  field-sizing: content;
+  min-height: 96px;
+  max-height: 360px;
+  overflow-y: auto;
+}
 .outreach-editor .list-subbar {
   padding: 0 0 14px;
 }
