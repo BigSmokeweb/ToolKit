@@ -59,9 +59,26 @@ public static class Leads
 }
 public static class Discovery
 {
-    // Basic LinkedIn search limits Boolean operators. Keep the primary people link simple;
-    // broad alternatives must not inherit exclusions or a restrictive network filter.
-    static string FirstTerm(string value) => Regex.Split(value ?? "", @",|;|\r?\n|\s+(?:OR|AND|NOT)\s+", RegexOptions.IgnoreCase).Select(x => Regex.Replace(x, "[\\\"()]", "").Trim()).FirstOrDefault(x => x != "") ?? "";
+    static string[] Terms(string? value)
+    {
+        var positive = Regex.Split(value ?? "", @"\s+NOT\s+", RegexOptions.IgnoreCase)[0];
+        var terms = Regex.Split(positive, @",|;|\r?\n|\s+(?:OR|AND)\s+", RegexOptions.IgnoreCase).Select(x => Regex.Replace(x, "[\\\"()]", "").Trim()).Where(x => x != "").Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
+        if (terms.Length > 20 || terms.Any(x => x.Length > 160)) throw new DeskError("Use up to 20 concise roles and 20 keywords per search.");
+        return terms;
+    }
+    static string Group(IEnumerable<string> terms)
+    {
+        var list = terms.Where(x => x != "").Select(x => x.Contains(' ') ? "\"" + x + "\"" : x).ToArray();
+        return list.Length > 1 ? "(" + string.Join(" OR ", list) + ")" : list.FirstOrDefault() ?? "";
+    }
+    public static string[] PeopleQueries(SearchCriteria criteria)
+    {
+        var roles = Terms(criteria.Titles); var topics = Terms(criteria.Keywords);
+        // Every entered term is covered without creating a long, restrictive Boolean query.
+        var roleGroups = (roles.Length == 0 ? new[] { "" } : roles).Chunk(2);
+        var topicGroups = (topics.Length == 0 ? new[] { "" } : topics).Chunk(2).ToArray();
+        return roleGroups.SelectMany(r => topicGroups.Select(t => string.Join(' ', new[] { Group(r), Group(t) }.Where(x => x != "")))).Select(q => q == "" ? "Founder" : q).ToArray();
+    }
     static string Or(string v) => string.Join(" OR ", v.Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries).Select(x => x.Contains(' ') ? "\"" + x.Replace("\"", "") + "\"" : x));
     public static object[] Links(SearchCriteria c)
     {
@@ -70,13 +87,13 @@ public static class Discovery
         string Q(string x) => Uri.EscapeDataString(x); var network = c.Network is "F" or "S" or "O" ? "&network=" + Q("[\"" + c.Network + "\"]") : ""; var geo = c.City.Equals("India", StringComparison.OrdinalIgnoreCase) ? "&geoUrn=%5B%22102713980%22%5D" : "";
         var time = c.Time == "day" ? "past-24h" : c.Time == "month" ? "past-month" : "past-week"; var secs = c.Time == "day" ? 86400 : c.Time == "month" ? 2592000 : 604800; var p = Or(c.Phrases); if (p == "") p = Or(c.Keywords); var positive = string.Join(' ', new[] { titles != "" ? $"({titles})" : "", keys != "" ? $"({keys})" : "" }.Where(x => x != "")); var google = "site:linkedin.com/in " + positive + " " + c.City + " " + string.Join(' ', excludes.Select(x => "-" + (x.Contains(' ') ? "\"" + x + "\"" : x)));
         object Link(string name, string type, string description, string q, string url) => new { name, type, description, query = q, url };
-        var role = FirstTerm(c.Titles); var topic = FirstTerm(c.Keywords);
-        var peopleQuery = string.Join(' ', new[] { role, topic }.Where(x => x != "").Distinct(StringComparer.OrdinalIgnoreCase));
-        if (peopleQuery == "") peopleQuery = "Founder";
-        var broadQuery = role != "" ? role : topic != "" ? topic : "Founder";
+        var peopleQueries = PeopleQueries(c);
+        var broadQuery = Terms(c.Titles).FirstOrDefault() ?? Terms(c.Keywords).FirstOrDefault() ?? "Founder";
         var peopleLocation = geo == "" && !string.IsNullOrWhiteSpace(c.City) ? " " + c.City : "";
+        string PeopleUrl(string q) => "https://www.linkedin.com/search/results/people/?keywords=" + Q(q + peopleLocation) + geo + "&origin=GLOBAL_SEARCH_HEADER";
+        var variants = peopleQueries.Select((q, i) => new { label = "Combination " + (i + 1) + ": " + q, query = q + peopleLocation, url = PeopleUrl(q) }).ToArray();
         return [
-         Link("People","LinkedIn","Simple search: first role + first keyword. Refine location and connections inside LinkedIn.",peopleQuery+peopleLocation,"https://www.linkedin.com/search/results/people/?keywords="+Q(peopleQuery+peopleLocation)+geo+"&origin=GLOBAL_SEARCH_HEADER"),
+         new { name = "People", type = "LinkedIn", description = "Search multiple roles and keywords together. Switch combinations to cover every entered term.", query = peopleQueries[0] + peopleLocation, url = PeopleUrl(peopleQueries[0]), variants },
          Link("People · broader search","LinkedIn","If results are empty, search by role only across all locations and connections.",broadQuery,"https://www.linkedin.com/search/results/people/?keywords="+Q(broadQuery)+"&origin=GLOBAL_SEARCH_HEADER"),
    Link("Recent posts","LinkedIn","Find people talking about the need now",p,"https://www.linkedin.com/search/results/content/?keywords="+Q(p)+"&datePosted="+Q("\""+time+"\"")+"&sortBy=%22date_posted%22"),
    Link("Hiring signals","LinkedIn","Companies hiring for the problem you solve",c.Jobs,"https://www.linkedin.com/jobs/search/?keywords="+Q(c.Jobs)+"&location="+Q(c.City)+"&f_TPR=r"+secs),

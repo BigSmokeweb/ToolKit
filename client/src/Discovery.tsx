@@ -39,6 +39,7 @@ export default function Discovery({
       return { ...emptyCriteria, ...c, categoryId: c.id };
     }),
     [links, setLinks] = useState<SearchLink[]>([]),
+    [peopleVariant, setPeopleVariant] = useState(0),
     [saved, setSaved] = useState<SavedSearch[]>([]),
     [prompt, setPrompt] = useState(""),
     [busy, setBusy] = useState(false),
@@ -62,6 +63,7 @@ export default function Discovery({
         .then((l) => {
           if (alive) {
             setLinks(l);
+            setPeopleVariant(0);
             setLinkError("");
           }
         })
@@ -162,10 +164,6 @@ export default function Discovery({
               <ChevronRight size={14} />
             </button>
           ))}
-          <div className="category-note">
-            <Compass size={17} />
-            <p>Start with a category. Fine-tune the search for your market.</p>
-          </div>
         </aside>
         <div className="discovery-main">
           <section className="panel search-builder">
@@ -384,9 +382,10 @@ export default function Discovery({
                 <div>
                   <h2>Open a search. Start exploring.</h2>
                   <p>
-                    Start with People. If LinkedIn shows no matches, use People · broader search.
-                    People searches use your first role and keyword to avoid LinkedIn’s Boolean limits;
-                    apply additional filters inside LinkedIn. Review profiles before importing.
+                    Start with People. If LinkedIn shows no matches, use People
+                    · broader search. People searches combine multiple roles and
+                    keywords. Switch combinations to cover all entered terms,
+                    then refine filters inside LinkedIn.
                   </p>
                 </div>
               </div>
@@ -414,14 +413,39 @@ export default function Discovery({
                         <div>
                           <h3>{l.name}</h3>
                           <p>{l.description}</p>
+                          {!!l.variants?.length && l.variants.length > 1 && (
+                            <label className="people-combinations">
+                              <span>
+                                Keyword combination · {l.variants.length}{" "}
+                                available
+                              </span>
+                              <Select
+                                aria-label="People keyword combination"
+                                value={peopleVariant}
+                                onChange={(e) =>
+                                  setPeopleVariant(Number(e.target.value))
+                                }
+                              >
+                                {l.variants.map((variant, index) => (
+                                  <option key={variant.query} value={index}>
+                                    {variant.label}
+                                  </option>
+                                ))}
+                              </Select>
+                            </label>
+                          )}
                         </div>
-                        <External className="open-search" href={l.url}>
+                        <External
+                          className="open-search"
+                          href={l.variants?.[peopleVariant]?.url || l.url}
+                        >
                           Open
                         </External>
                         <details>
                           <summary>View search query</summary>
                           <code>
-                            {l.query ||
+                            {l.variants?.[peopleVariant]?.query ||
+                              l.query ||
                               "Add keywords above to narrow this search."}
                           </code>
                         </details>
@@ -461,9 +485,7 @@ export default function Discovery({
                   <Bookmark size={16} />
                   <div>
                     <strong>{s.name}</strong>
-                    <small>
-                      Saved search
-                    </small>
+                    <small>Saved search</small>
                   </div>
                   <Button
                     variant="ghost"
@@ -495,12 +517,7 @@ export default function Discovery({
                       className="icon-button"
                       aria-label={"Delete search " + s.name}
                       onClick={async () => {
-                        if (
-                          !confirm(
-                            "Delete this saved search?",
-                          )
-                        )
-                          return;
+                        if (!confirm("Delete this saved search?")) return;
                         try {
                           await del("/searches/" + s.id);
                           setSaved((v) => v.filter((x) => x.id !== s.id));

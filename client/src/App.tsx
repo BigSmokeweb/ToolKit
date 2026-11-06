@@ -3,7 +3,6 @@ import {
   LayoutDashboard,
   Search,
   Columns3,
-  Radio,
   Settings as SettingsIcon,
   Plus,
   ArrowRight,
@@ -28,13 +27,7 @@ import {
   RotateCcw,
   Trash2,
 } from "lucide-react";
-import type {
-  Staff,
-  Category,
-  Lead,
-  Overview,
-  Integration,
-} from "./types";
+import type { Staff, Category, Lead, Overview, Integration } from "./types";
 import { api, post, put, del, toInput, date, due, STAGES, band } from "./lib";
 import {
   Button,
@@ -50,6 +43,7 @@ import Discovery from "./Discovery";
 import ImportLeads from "./ImportLeads";
 import LeadEditor from "./LeadEditor";
 import SettingsPage from "./Settings";
+import SharedIntegrations from "./SharedIntegrations";
 
 export interface Context {
   publicShare?: boolean;
@@ -72,7 +66,10 @@ const nav = [
   ["settings", "Settings", SettingsIcon],
 ] as const;
 export default function App() {
-  const [workspace, setWorkspace] = useState<{ user: Staff; publicShare?: boolean } | null>(null),
+  const [workspace, setWorkspace] = useState<{
+      user: Staff;
+      publicShare?: boolean;
+    } | null>(null),
     [workspaceError, setWorkspaceError] = useState("");
   const [page, setPage] = useState(location.hash.slice(1) || "overview"),
     [menu, setMenu] = useState(false),
@@ -240,15 +237,6 @@ export default function App() {
           ))}
         </nav>
         <div className="sidebar-bottom">
-          <div className="quiet-card">
-            <ShieldCheck size={19} />
-            <strong>Thoughtful outreach.</strong>
-            <p>
-              Real evidence. Human review.
-              <br />
-              Better conversations.
-            </p>
-          </div>
           <div className="user-menu">
             <Avatar name={workspace.user.name} small />
             <div>
@@ -304,12 +292,6 @@ export default function App() {
           </div>
         </header>
         <main className="main-content">
-          {ctx.publicShare && (
-            <div className="sample-banner" role="status">
-              <Radio size={15} />
-              <span>Live showcase · Shared pipeline and real Gemini. Changes are visible to everyone with this link.</span>
-            </div>
-          )}
           {data.overview.sampleCount > 0 && (
             <div className="sample-banner">
               <Sparkles size={15} />
@@ -338,7 +320,12 @@ export default function App() {
               setOnlyDue={setShowDue}
             />
           )}
-          {page === "settings" && (ctx.publicShare ? <SharedIntegrations ctx={ctx} /> : <SettingsPage ctx={ctx} />)}
+          {page === "settings" &&
+            (ctx.publicShare ? (
+              <SharedIntegrations ctx={ctx} />
+            ) : (
+              <SettingsPage ctx={ctx} />
+            ))}
           {!nav.some((n) => n[0] === page) && (
             <Dashboard ctx={ctx} onImport={() => setImportOpen(true)} />
           )}
@@ -347,7 +334,9 @@ export default function App() {
           <span>NoLegalPaisa Lead Desk</span>
           <span>
             <i />
-            {ctx.publicShare ? "Live shared workspace · Hosted by the owner" : "Local workspace · Your data stays on this server"}
+            {ctx.publicShare
+              ? "Live shared workspace · Hosted by the owner"
+              : "Local workspace · Your data stays on this server"}
           </span>
         </footer>
       </div>
@@ -380,31 +369,6 @@ export default function App() {
     </div>
   );
 }
-function SharedIntegrations({ ctx }: { ctx: Context }) {
-  const [busy, setBusy] = useState(false);
-  const test = async () => {
-    setBusy(true);
-    try { await post("/ai/test"); ctx.notify("Real Gemini connection succeeded."); await ctx.refresh(); }
-    catch (e: any) { ctx.notify(e.message, true); }
-    finally { setBusy(false); }
-  };
-  return <section className="panel integration-settings wide-panel">
-    <div className="panel-heading"><div><h2>Live integrations</h2><p>This showcase uses the owner’s connected services.</p></div><Badge tone="green">Live workspace</Badge></div>
-    <div className="padding">
-      <h3>Gemini · {ctx.integrations.geminiConfigured ? "Configured" : "Not configured"}</h3>
-      <p className="muted">Build searches, extract pasted profile text and draft messages using the real Gemini API. Requests share the owner’s daily allowance.</p>
-      <Button busy={busy} onClick={test} disabled={!ctx.integrations.geminiConfigured}><Sparkles size={15} /> Test real Gemini</Button>
-      <h3>LinkedIn · {ctx.integrations.linkedin && !ctx.integrations.linkedin.expired ? "Connected" : "Not connected"}</h3>
-      <p className="muted">LinkedIn confirms the connected account’s identity. People searches open in your own browser session. Profile capture uses explicitly selected text; messages are sent manually.</p>
-      <h3>One-click browser capture</h3>
-      <p className="muted">On LinkedIn People search results, click the pinned LD icon once to add all identifiable results from that page. Existing leads are skipped. New records stay unapproved. Right-click the page to show optional hover buttons; the result tab also offers a CSV download.</p>
-      <p className="muted">Download and extract the extension, then load it in Chrome or Edge using Developer mode → Load unpacked. Enter this showcase URL in the extension setup and ask the owner for a pairing code generated in the local showcase controls. Pairing a different extension replaces the previous showcase pairing.</p>
-      <a className="button secondary" href="/downloads/lead-desk-capture.zip" download><ArrowDownToLine size={15} /> Download extension</a>
-      <p className="muted">API keys, connection changes and pairing-code controls are available to the owner in the local app.</p>
-    </div>
-  </section>;
-}
-
 function Dashboard({ ctx, onImport }: { ctx: Context; onImport: () => void }) {
   const { overview: o, leads, categories } = ctx;
   const next = [...leads]

@@ -29,4 +29,25 @@ Check("lookalike domains cannot be captured", () => Reject(() => CaptureRules.Va
 Check("extension origins are strictly constrained", () => Assert(BrowserCaptureService.ExtensionIdValid(new string('a', 32)) && !BrowserCaptureService.ExtensionIdValid("bad") && !BrowserCaptureService.ExtensionIdValid(new string('z', 32))));
 Check("repeat captures from a post deduplicate even without a company", () => Assert(CaptureRules.Duplicate(new Lead { Name = "Priya Demo", SourceUrl = "https://www.linkedin.com/feed/update/urn:li:activity:123" }, new LeadInput(Name: "Priya Demo", SourceUrl: "https://www.linkedin.com/feed/update/urn:li:activity:123"))));
 Check("different people in the same post remain separate", () => Assert(!CaptureRules.Duplicate(new Lead { Name = "Priya Demo", SourceUrl = "https://www.linkedin.com/feed/update/urn:li:activity:123" }, new LeadInput(Name: "Another Person", SourceUrl: "https://www.linkedin.com/feed/update/urn:li:activity:123"))));
-Console.WriteLine($"{passed} capture checks passed.");
+Check("people queries cover all roles and topics with bounded Boolean combinations", () => {
+    var queries = Discovery.PeopleQueries(new(Titles: "CTO, Founder, Data Protection Officer, CISO, Head of Compliance", Keywords: "SaaS, fintech, healthtech"));
+    Assert(queries.Length == 6);
+    foreach (var term in new[] { "CTO", "Founder", "Data Protection Officer", "CISO", "Head of Compliance", "SaaS", "fintech", "healthtech" }) Assert(queries.Any(q => q.Contains(term)));
+    Assert(queries.All(q => System.Text.RegularExpressions.Regex.Matches(q, @"\bOR\b").Count <= 2 && !q.Contains("NOT")));
+    Assert(queries[0] == "(CTO OR Founder) (SaaS OR fintech)");
+});
+Check("people searches deduplicate terms and quote multiword roles", () => {
+    var queries = Discovery.PeopleQueries(new(Titles: "CTO, cto, Head of Compliance", Keywords: "SaaS"));
+    Assert(queries.Length == 1 && queries[0] == "(CTO OR \"Head of Compliance\") SaaS");
+});
+Check("large keyword lists are rejected instead of silently discarding terms", () => Reject(() => Discovery.PeopleQueries(new(Titles: string.Join(',', Enumerable.Range(1,21).Select(i => "Role" + i))))));
+Check("draft context includes captured profile details and source notes", () => {
+    var lead = new Lead { Name = "Asha Test", Title = "Website Developer", Company = "Example Co", City = "Mumbai", Notes = "Builds accessible React applications", SourceUrl = "https://www.linkedin.com/search/results/people/" };
+    OutreachDrafting.Validate(lead, "LinkedIn message");
+    var context = OutreachDrafting.Context(lead, "LinkedIn message", "NoLegalPaisa", "Professional collaboration");
+    Assert(context.Contains("Website Developer") && context.Contains("accessible React") && context.Contains("Mumbai") && context.Contains("NoLegalPaisa"));
+});
+Check("unapproved leads may be drafted without approving outreach", () => OutreachDrafting.Validate(new Lead { Approved = false }, "Email"));
+Check("do-not-contact and sample restrictions still apply to drafts", () => { Reject(() => OutreachDrafting.Validate(new Lead { DoNotContact = true }, "Email")); Reject(() => OutreachDrafting.Validate(new Lead { IsSample = true }, "Email")); });
+Check("drafts reject unsupported channels", () => Reject(() => OutreachDrafting.Validate(new Lead(), "Direct API send")));
+Console.WriteLine($"{passed} capture and drafting checks passed.");

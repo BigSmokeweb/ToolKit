@@ -81,6 +81,7 @@ export interface SearchLink {
   description: string;
   query: string;
   url: string;
+  variants?: { label: string; query: string; url: string }[];
 }
 export interface SavedSearch {
   id: string;

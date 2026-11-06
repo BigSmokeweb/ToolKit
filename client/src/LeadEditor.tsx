@@ -1,4 +1,10 @@
-import { useEffect, useState, type FormEvent } from "react";
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type FormEvent,
+} from "react";
 import {
   ArrowRight,
   CheckCircle2,
@@ -7,7 +13,6 @@ import {
   ExternalLink,
   Linkedin,
   Mail,
-  MessageSquare,
   Save,
   ShieldCheck,
   Sparkles,
@@ -42,6 +47,7 @@ import {
   Select,
   Empty,
 } from "./components";
+import { loadProfileDraft, profileDraftKey } from "./profileDraft";
 export default function LeadEditor({
   ctx,
   id,
@@ -58,6 +64,7 @@ export default function LeadEditor({
     ),
     [tab, setTab] = useState("details"),
     [busy, setBusy] = useState(false),
+    [draftBusy, setDraftBusy] = useState(false),
     [error, setError] = useState(""),
     [history, setHistory] = useState<{
       outreach: Outreach[];
@@ -67,6 +74,16 @@ export default function LeadEditor({
     [message, setMessage] = useState(""),
     [draftType, setDraftType] = useState(""),
     [followup, setFollowup] = useState("");
+  const draftAttempts = useRef(new Set<string>());
+  const draftSequence = useRef(0);
+  const mounted = useRef(true);
+  const editRevision = useRef(0);
+  const savedMessages = useRef(
+    new Map<string, { message: string; subject: string; draftType: string }>(),
+  );
+  const draftKey = lead ? profileDraftKey(lead.id, lead.version, channel) : "";
+  const activeDraftKey = useRef(draftKey);
+  activeDraftKey.current = draftKey;
   const editable =
     ctx.user.role === "Admin" || !lead?.ownerId || lead.ownerId === ctx.user.id;
   const change = (key: keyof LeadInput, value: any) =>
@@ -110,26 +127,91 @@ export default function LeadEditor({
       setBusy(false);
     }
   }
-  async function draft() {
-    if (!lead) return;
-    setBusy(true);
-    setError("");
-    try {
-      const result = await post("/ai/draft-message", {
-        leadId: lead.id,
-        channel,
-      });
-      setMessage(result.message || "");
-      setSubject(result.subject || "");
-      setDraftType("Gemini draft · review every claim before sending");
-    } catch (e: any) {
-      setError(e.message);
-    } finally {
-      setBusy(false);
-    }
-  }
+  const draft = useCallback(
+    async (regenerate = false) => {
+      if (
+        !lead ||
+        lead.doNotContact ||
+        lead.isSample ||
+        !editable ||
+        channel === "Call"
+      )
+        return;
+      const key = profileDraftKey(lead.id, lead.version, channel);
+      const sequence = ++draftSequence.current;
+      const revision = editRevision.current;
+      draftAttempts.current.add(key);
+      setDraftBusy(true);
+      setError("");
+      try {
+        const result = await loadProfileDraft(
+          key,
+          () =>
+            post("/ai/draft-message", {
+              leadId: lead.id,
+              channel,
+            }),
+          regenerate,
+        );
+        if (
+          !mounted.current ||
+          sequence !== draftSequence.current ||
+          activeDraftKey.current !== key ||
+          editRevision.current !== revision
+        )
+          return;
+        setMessage(result.message || "");
+        setSubject(result.subject || "");
+        setDraftType("Gemini draft · based on captured profile");
+      } catch (e: any) {
+        if (
+          mounted.current &&
+          sequence === draftSequence.current &&
+          activeDraftKey.current === key
+        )
+          setError(e.message);
+      } finally {
+        if (mounted.current && sequence === draftSequence.current)
+          setDraftBusy(false);
+      }
+    },
+    [
+      lead?.id,
+      lead?.version,
+      lead?.doNotContact,
+      lead?.isSample,
+      editable,
+      channel,
+    ],
+  );
+  useEffect(() => {
+    if (
+      tab === "outreach" &&
+      draftKey &&
+      channel !== "Call" &&
+      ctx.integrations.geminiConfigured &&
+      !message.trim() &&
+      !savedMessages.current.has(draftKey) &&
+      !draftAttempts.current.has(draftKey)
+    )
+      void draft();
+  }, [
+    tab,
+    draftKey,
+    channel,
+    ctx.integrations.geminiConfigured,
+    message,
+    draft,
+  ]);
+  useEffect(() => {
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
+    };
+  }, []);
   function template() {
     if (!lead) return;
+    editRevision.current++;
     const cat = ctx.categories.find((c) => c.id === lead.categoryId);
     setSubject("A conversation about " + (cat?.name || "your business needs"));
     setMessage(
@@ -167,6 +249,8 @@ export default function LeadEditor({
   }
   const outreachDisabled =
     !lead || !lead.approved || lead.doNotContact || lead.isSample || !editable;
+  const draftingDisabled =
+    !lead || lead.doNotContact || lead.isSample || !editable;
   return (
     <Modal
       large
@@ -443,31 +527,34 @@ export default function LeadEditor({
         )}
         {tab === "outreach" && lead && (
           <div className="outreach-editor">
-            <div className="info-box">
-              <MessageSquare size={19} />
-              <span>
-                Prepare your message here, send it yourself in LinkedIn or your
-                email app, then record it below. Lead Desk does not send
-                LinkedIn messages.
-              </span>
-            </div>
-            {outreachDisabled && (
-              <div className="warning-box">
-                {lead.isSample
-                  ? "This is a fictional sample lead. Outreach is disabled."
-                  : lead.doNotContact
-                    ? "This person is marked Do not contact."
-                    : !lead.approved
-                      ? "Review and approve this lead on the Details tab, then save it before outreach."
-                      : "Only the lead owner or an administrator can record outreach."}
-              </div>
+            {(lead.doNotContact || lead.isSample || !editable) && (
+              <p className="outreach-status">
+                {lead.doNotContact
+                  ? "Do not contact"
+                  : lead.isSample
+                    ? "Sample lead"
+                    : "Read-only lead"}
+              </p>
             )}
             <Field label="Channel">
               <Select
                 value={channel}
                 onChange={(e) => {
+                  savedMessages.current.set(draftKey, {
+                    message,
+                    subject,
+                    draftType,
+                  });
+                  editRevision.current++;
+                  const nextKey = lead
+                    ? profileDraftKey(lead.id, lead.version, e.target.value)
+                    : "";
+                  const saved = savedMessages.current.get(nextKey);
+                  setMessage(saved?.message || "");
+                  setSubject(saved?.subject || "");
+                  setDraftType(saved?.draftType || "");
+                  setError("");
                   setChannel(e.target.value);
-                  setDraftType("");
                 }}
               >
                 {["LinkedIn invite", "LinkedIn message", "Email", "Call"].map(
@@ -477,34 +564,47 @@ export default function LeadEditor({
                 )}
               </Select>
             </Field>
-            <div className="draft-actions">
-              <Button
-                variant="secondary"
-                busy={busy}
-                disabled={
-                  !ctx.integrations.geminiConfigured || outreachDisabled
-                }
-                onClick={draft}
-              >
-                <Sparkles size={16} />
-                Draft with Gemini
-              </Button>
-              <Button
-                variant="ghost"
-                disabled={outreachDisabled}
-                onClick={template}
-              >
-                Use editable template
-              </Button>
-              {!ctx.integrations.geminiConfigured && (
-                <small>Add a Gemini key to enable AI drafting.</small>
-              )}
-            </div>
+            {channel !== "Call" && (
+              <div className="draft-actions">
+                <Button
+                  variant="secondary"
+                  busy={draftBusy}
+                  disabled={
+                    !ctx.integrations.geminiConfigured ||
+                    draftingDisabled ||
+                    busy
+                  }
+                  onClick={() => void draft(true)}
+                >
+                  <Sparkles size={16} />
+                  {message ? "Regenerate draft" : "Draft with Gemini"}
+                </Button>
+                <Button
+                  variant="ghost"
+                  disabled={draftingDisabled || busy}
+                  onClick={template}
+                >
+                  Use editable template
+                </Button>
+                {!ctx.integrations.geminiConfigured && (
+                  <small>Add a Gemini key to enable AI drafting.</small>
+                )}
+              </div>
+            )}
+            {draftBusy && (
+              <p className="draft-progress" role="status">
+                <Sparkles size={15} />
+                Gemini is preparing a draft from this person’s captured profile…
+              </p>
+            )}
             {channel === "Email" && (
               <Field label="Subject">
                 <input
                   value={subject}
-                  onChange={(e) => setSubject(e.target.value)}
+                  onChange={(e) => {
+                    editRevision.current++;
+                    setSubject(e.target.value);
+                  }}
                   maxLength={250}
                 />
               </Field>
@@ -514,12 +614,29 @@ export default function LeadEditor({
                 rows={9}
                 value={message}
                 maxLength={10000}
-                onChange={(e) => setMessage(e.target.value)}
-                placeholder="Write or prepare a draft, then review it before sending…"
+                onChange={(e) => {
+                  editRevision.current++;
+                  setMessage(e.target.value);
+                  setDraftType("Edited by you");
+                }}
+                placeholder={
+                  draftBusy
+                    ? "Preparing your personalized draft…"
+                    : channel === "Call"
+                      ? "Add your call notes…"
+                      : "Your profile-based draft appears here. You can edit every word."
+                }
               />
             </Field>
             <div className="list-subbar">
-              <small>{draftType || "Written by you"}</small>
+              <small>
+                {draftType ||
+                  (draftBusy
+                    ? "Preparing Gemini draft…"
+                    : message
+                      ? "Written by you"
+                      : "")}
+              </small>
               <small
                 className={
                   channel === "LinkedIn invite" && message.length > 200
@@ -534,7 +651,7 @@ export default function LeadEditor({
             <div className="actions outreach-links">
               <Button
                 variant="secondary"
-                disabled={!message || outreachDisabled}
+                disabled={!message || draftingDisabled}
                 onClick={async () => {
                   try {
                     await navigator.clipboard.writeText(message);

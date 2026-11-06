@@ -1,4 +1,238 @@
 /* Secondary copy remains readable on the light surfaces. */
+.integration-overview {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 22px;
+  align-items: start;
+}
+.service-card {
+  overflow: hidden;
+}
+.service-card-header {
+  display: flex;
+  align-items: center;
+  gap: 13px;
+  padding: 24px;
+  border-bottom: 1px solid #e7ece3;
+  flex-wrap: wrap;
+}
+.service-card-header > div {
+  flex: 1;
+  min-width: 100px;
+}
+.service-card-header h2 {
+  margin: 0 0 5px;
+  font-size: 18px;
+  color: #244d3c;
+  font-weight: 550;
+}
+.service-card-header p {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.6;
+}
+.service-card-header > .badge {
+  margin-left: auto;
+  white-space: nowrap;
+}
+.service-symbol {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  background: #edf3e8;
+  color: #315c44;
+}
+.service-symbol.gemini {
+  background: #f1edfa;
+  color: #7d64aa;
+}
+.service-symbol.linkedin {
+  background: #eaf3fa;
+  color: #2478a6;
+}
+.service-card-body {
+  padding: 24px;
+}
+.service-card-body > p {
+  font-size: 13px;
+  line-height: 1.8;
+  margin: 0 0 20px;
+  max-width: 65ch;
+}
+.service-features {
+  display: flex;
+  gap: 7px;
+  flex-wrap: wrap;
+  margin-bottom: 24px;
+}
+.service-features span {
+  padding: 5px 9px;
+  border-radius: 5px;
+  background: #f4f6f0;
+  font-size: 11px;
+  color: #58704b;
+}
+.service-account {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0 0 20px;
+  padding: 14px;
+  background: #f6f8f2;
+  border: 1px solid #e6ecdf;
+  border-radius: 8px;
+}
+.service-account strong {
+  display: block;
+  font-weight: 550;
+  font-size: 14px;
+  color: #36543f;
+}
+.service-account small {
+  display: block;
+  margin-top: 5px;
+  font-size: 11px;
+}
+.service-account-dot {
+  width: 8px;
+  height: 8px;
+  flex-shrink: 0;
+  background: #719761;
+  border-radius: 50%;
+}
+.capture-service {
+  grid-column: 1/-1;
+}
+.capture-workflow {
+  list-style: none;
+  counter-reset: capture;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 22px;
+  margin: 0 0 25px;
+  padding: 0;
+}
+.capture-workflow li {
+  counter-increment: capture;
+  position: relative;
+  padding-top: 35px;
+}
+.capture-workflow li::before {
+  content: "0" counter(capture);
+  position: absolute;
+  top: 0;
+  left: 0;
+  font-size: 11px;
+  letter-spacing: 1px;
+  color: #87a174;
+}
+.capture-workflow strong {
+  display: block;
+  font-size: 14px;
+  font-weight: 550;
+  color: #36543f;
+  margin-bottom: 8px;
+}
+.capture-workflow span {
+  font-size: 12px;
+  color: #75816e;
+  line-height: 1.8;
+  display: block;
+}
+.service-card-actions {
+  display: flex;
+  align-items: flex-start;
+  gap: 20px;
+  flex-wrap: wrap;
+  padding-top: 20px;
+  border-top: 1px solid #e8ece3;
+}
+.capture-install {
+  flex: 1;
+  min-width: 230px;
+  font-size: 12px;
+  line-height: 1.8;
+  padding: 10px 0;
+}
+.capture-install summary {
+  cursor: pointer;
+  color: #4e7055;
+}
+.capture-install p {
+  margin: 13px 0 0;
+  font-size: 12px;
+  line-height: 1.8;
+}
+.people-combinations {
+  display: block;
+  margin-top: 14px;
+}
+.people-combinations > span {
+  display: block;
+  font-size: 11px;
+  color: #7b8b6b;
+  margin-bottom: 7px;
+}
+.people-combinations select {
+  max-width: 100%;
+  font-size: 12px;
+}
+.search-link-card > div {
+  min-width: 0;
+}
+.draft-progress {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 12px 14px;
+  border: 1px solid #e7e0f3;
+  border-radius: 8px;
+  background: #f8f5fc;
+  font-size: 12px;
+  line-height: 1.6;
+  color: #77658d !important;
+  margin: 16px 0;
+}
+.outreach-status {
+  font-size: 12px;
+  color: #a1773e !important;
+  margin-bottom: 15px;
+}
+@media (max-width: 900px) {
+  .integration-overview {
+    grid-template-columns: 1fr;
+  }
+}
+@media (max-width: 560px) {
+  .service-card-header,
+  .service-card-body {
+    padding: 19px;
+  }
+  .capture-workflow {
+    grid-template-columns: 1fr;
+    gap: 18px;
+  }
+  .capture-workflow li {
+    padding: 0 0 0 31px;
+  }
+  .capture-workflow li::before {
+    top: 2px;
+  }
+  .service-card-actions {
+    flex-direction: column;
+    gap: 8px;
+  }
+  .capture-install {
+    min-width: 0;
+    width: 100%;
+  }
+  .people-combinations select {
+    font-size: 11px;
+  }
+}
 .capture-steps {
   padding-left: 20px;
   color: #6d7c61;
@@ -48,7 +282,6 @@
   color: #7c8776;
 }
 .panel .category-option small,
-.panel .category-note,
 .panel .quality-filters > span,
 .panel .search-link-card p,
 .panel .search-link-card details,
