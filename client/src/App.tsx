@@ -4,7 +4,6 @@ import {
   Search,
   Columns3,
   Radio,
-  History,
   Settings as SettingsIcon,
   Plus,
   ArrowRight,
@@ -35,8 +34,6 @@ import type {
   Lead,
   Overview,
   Integration,
-  Activity,
-  Outreach,
 } from "./types";
 import { api, post, put, del, toInput, date, due, STAGES, band } from "./lib";
 import {
@@ -53,7 +50,6 @@ import Discovery from "./Discovery";
 import ImportLeads from "./ImportLeads";
 import LeadEditor from "./LeadEditor";
 import SettingsPage from "./Settings";
-import SignalsPage from "./Signals";
 
 export interface Context {
   publicShare?: boolean;
@@ -73,8 +69,6 @@ const nav = [
   ["overview", "Overview", LayoutDashboard],
   ["discover", "Find people", Search],
   ["pipeline", "Pipeline", Columns3],
-  ["signals", "Buying signals", Radio],
-  ["activity", "Activity", History],
   ["settings", "Settings", SettingsIcon],
 ] as const;
 export default function App() {
@@ -344,8 +338,6 @@ export default function App() {
               setOnlyDue={setShowDue}
             />
           )}
-          {page === "signals" && <SignalsPage ctx={ctx} />}
-          {page === "activity" && <ActivityPage ctx={ctx} />}
           {page === "settings" && (ctx.publicShare ? <SharedIntegrations ctx={ctx} /> : <SettingsPage ctx={ctx} />)}
           {!nav.some((n) => n[0] === page) && (
             <Dashboard ctx={ctx} onImport={() => setImportOpen(true)} />
@@ -1193,108 +1185,6 @@ function Pipeline({
         Fit reflects potential relevance. Credibility reflects checks completed
         by your team.
       </div>
-    </>
-  );
-}
-function ActivityPage({ ctx }: { ctx: Context }) {
-  const [logs, setLogs] = useState<Activity[]>([]),
-    [outreach, setOutreach] = useState<Outreach[]>([]),
-    [tab, setTab] = useState("history"),
-    [loading, setLoading] = useState(true);
-  useEffect(() => {
-    Promise.all([api<Activity[]>("/activity"), api<Outreach[]>("/outreach")])
-      .then(([a, o]) => {
-        setLogs(a);
-        setOutreach(o);
-      })
-      .catch((e) => ctx.notify(e.message, true))
-      .finally(() => setLoading(false));
-  }, []);
-  return (
-    <>
-      <div className="page-heading">
-        <div>
-          <div className="eyebrow">A SHARED RECORD</div>
-          <h1>
-            Every step, remembered<span className="heading-dot">.</span>
-          </h1>
-          <p>See how your team is moving conversations forward.</p>
-        </div>
-      </div>
-      <section className="panel">
-        <div className="tabs">
-          <button
-            className={tab === "history" ? "active" : ""}
-            onClick={() => setTab("history")}
-          >
-            Workspace history
-          </button>
-          <button
-            className={tab === "outreach" ? "active" : ""}
-            onClick={() => setTab("outreach")}
-          >
-            Recorded outreach
-          </button>
-        </div>
-        {loading ? (
-          <p className="padding muted">Loading activity…</p>
-        ) : tab === "history" ? (
-          <div className="activity-list">
-            {logs.map((a) => (
-              <article key={a.id}>
-                <span className="activity-dot">
-                  <History size={15} />
-                </span>
-                <div>
-                  <strong>{a.action}</strong>
-                  {a.detail && <p>{a.detail}</p>}
-                  <small>
-                    {ctx.staff.find((s) => s.id === a.staffId)?.name ||
-                      "Team member"}{" "}
-                    · {date(a.at, true)}
-                  </small>
-                </div>
-                {a.leadId && ctx.leads.some((l) => l.id === a.leadId) && (
-                  <button
-                    className="text-button"
-                    onClick={() => ctx.openLead(a.leadId)}
-                  >
-                    View lead
-                    <ArrowUpRight size={14} />
-                  </button>
-                )}
-              </article>
-            ))}
-          </div>
-        ) : outreach.length ? (
-          <div className="activity-list">
-            {outreach.map((o) => (
-              <article key={o.id}>
-                <span className="activity-dot">
-                  <Linkedin size={15} />
-                </span>
-                <div>
-                  <strong>
-                    {o.channel} ·{" "}
-                    {ctx.leads.find((l) => l.id === o.leadId)?.name ||
-                      "Archived lead"}
-                  </strong>
-                  <p className="preserve-text">{o.message}</p>
-                  <small>
-                    {ctx.staff.find((s) => s.id === o.staffId)?.name} ·{" "}
-                    {date(o.sentAt, true)}
-                  </small>
-                </div>
-              </article>
-            ))}
-          </div>
-        ) : (
-          <Empty icon={History} title="Your conversations will leave a trail">
-            After sending a message yourself, record it on the lead’s Outreach
-            tab.
-          </Empty>
-        )}
-      </section>
     </>
   );
 }

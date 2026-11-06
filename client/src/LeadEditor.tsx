@@ -5,7 +5,6 @@ import {
   Clock,
   Copy,
   ExternalLink,
-  History,
   Linkedin,
   Mail,
   MessageSquare,
@@ -15,7 +14,7 @@ import {
   Trash2,
 } from "lucide-react";
 import type { Context } from "./App";
-import type { Lead, LeadInput, Activity, Outreach } from "./types";
+import type { Lead, LeadInput, Outreach } from "./types";
 import {
   api,
   post,
@@ -61,7 +60,6 @@ export default function LeadEditor({
     [busy, setBusy] = useState(false),
     [error, setError] = useState(""),
     [history, setHistory] = useState<{
-      audit: Activity[];
       outreach: Outreach[];
     } | null>(null),
     [channel, setChannel] = useState("LinkedIn message"),
@@ -85,7 +83,7 @@ export default function LeadEditor({
   }, [id]);
   useEffect(() => {
     if (tab === "history" && lead)
-      api("/leads/" + lead.id + "/history")
+      api("/leads/" + lead.id + "/outreach")
         .then(setHistory)
         .catch((e) => setError(e.message));
   }, [tab, lead?.version]);
@@ -235,7 +233,7 @@ export default function LeadEditor({
                 setError("");
               }}
             >
-              History
+              Recorded outreach
             </button>
           </div>
         </>
@@ -602,7 +600,7 @@ export default function LeadEditor({
         {tab === "history" && (
           <div className="lead-history">
             {!history ? (
-              <p className="muted">Loading history…</p>
+              <p className="muted">Loading recorded outreach…</p>
             ) : (
               <>
                 <h3>Recorded outreach</h3>
@@ -618,22 +616,6 @@ export default function LeadEditor({
                 ) : (
                   <p className="muted">No outreach recorded yet.</p>
                 )}
-                <h3>Lead history</h3>
-                <div className="activity-list">
-                  {history.audit.map((a) => (
-                    <article key={a.id}>
-                      <History size={16} />
-                      <div>
-                        <strong>{a.action}</strong>
-                        <small>
-                          {ctx.staff.find((s) => s.id === a.staffId)?.name ||
-                            "Team member"}{" "}
-                          · {date(a.at, true)}
-                        </small>
-                      </div>
-                    </article>
-                  ))}
-                </div>
               </>
             )}
           </div>

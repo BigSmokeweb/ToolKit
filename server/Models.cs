@@ -75,15 +75,6 @@ public class Outreach
     public string Message { get; set; } = "";
     public DateTime SentAt { get; set; } = DateTime.UtcNow;
 }
-public class Audit
-{
-    public string Id { get; set; } = Guid.NewGuid().ToString();
-    public string StaffId { get; set; } = "";
-    public string LeadId { get; set; } = "";
-    public string Action { get; set; } = "";
-    public string Detail { get; set; } = "";
-    public DateTime At { get; set; } = DateTime.UtcNow;
-}
 public class AppSetting { [Key, MaxLength(100)] public string Key { get; set; } = ""; public string Value { get; set; } = ""; }
 public class LinkedInAccount
 {
@@ -100,19 +91,12 @@ public class SavedSearch
     public string StaffId { get; set; } = "";
     public string Name { get; set; } = "";
     public string Criteria { get; set; } = "{}";
-    public bool Monitor { get; set; }
-    public DateTime? LastRunAt { get; set; }
-    public string LastError { get; set; } = "";
-}
-public class BuyingSignal
-{
-    public string Id { get; set; } = Guid.NewGuid().ToString();
-    public string SearchId { get; set; } = "";
-    public string Title { get; set; } = "";
-    public string Url { get; set; } = "";
-    public string Snippet { get; set; } = "";
-    public bool Reviewed { get; set; }
-    public DateTime At { get; set; } = DateTime.UtcNow;
+    // Existing databases require these non-null legacy columns when inserting a saved search.
+    // They are storage compatibility only, hidden from the API and unused by application behavior.
+    [System.ComponentModel.DataAnnotations.Schema.Column("Monitor"), System.Text.Json.Serialization.JsonIgnore]
+    public bool LegacyFlag { get; set; }
+    [System.ComponentModel.DataAnnotations.Schema.Column("LastError"), System.Text.Json.Serialization.JsonIgnore]
+    public string LegacyText { get; set; } = "";
 }
 public class AiUsage
 {
@@ -131,11 +115,9 @@ public class DeskDb(DbContextOptions<DeskDb> options) : DbContext(options)
     public DbSet<Lead> Leads => Set<Lead>();
     public DbSet<LeadCheck> LeadChecks => Set<LeadCheck>();
     public DbSet<Outreach> OutreachLog => Set<Outreach>();
-    public DbSet<Audit> AuditLog => Set<Audit>();
     public DbSet<AppSetting> Settings => Set<AppSetting>();
     public DbSet<LinkedInAccount> LinkedInAccounts => Set<LinkedInAccount>();
     public DbSet<SavedSearch> Searches => Set<SavedSearch>();
-    public DbSet<BuyingSignal> Signals => Set<BuyingSignal>();
     public DbSet<AiUsage> AiUsage => Set<AiUsage>();
     protected override void OnModelCreating(ModelBuilder b)
     {
@@ -153,5 +135,5 @@ public record StaffRequest(string Name, string Email);
 public record LeadInput(string Name = "", string Title = "", string Company = "", string City = "", string LinkedInUrl = "", string Email = "", string CategoryId = "", string Signal = "None", string Evidence = "", string Source = "", string SourceUrl = "", string Notes = "", string Stage = "New", string OwnerId = "", DateTime? FollowUpAt = null, bool Approved = false, bool DoNotContact = false, bool IsSample = false, int Version = 0, Dictionary<string, bool>? Checks = null);
 public record OutreachInput(string Channel, string Subject, string Message, DateTime? FollowUpAt);
 public record SearchCriteria(string Titles = "", string Keywords = "", string Phrases = "", string Jobs = "", string City = "India", string Network = "", string Time = "week", string CompanyType = "", string Size = "", string Exclude = "", bool RemoveSeekers = true, bool RemoveSellers = true, string CategoryId = "");
-public record SearchInput(string Name, SearchCriteria Criteria, bool Monitor = false);
+public record SearchInput(string Name, SearchCriteria Criteria);
 public record AiInput(string Text = "", string LeadId = "", string Channel = "LinkedIn message", string CategoryId = "");

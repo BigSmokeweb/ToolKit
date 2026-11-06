@@ -44,7 +44,6 @@ export default function Discovery({
     [busy, setBusy] = useState(false),
     [saving, setSaving] = useState(false),
     [searchName, setSearchName] = useState(""),
-    [monitor, setMonitor] = useState(false),
     [linkError, setLinkError] = useState("");
   const change = (k: keyof Criteria, v: string | boolean) =>
     setCriteria((c) => ({ ...c, [k]: v }));
@@ -95,11 +94,10 @@ export default function Discovery({
       const s = await post<SavedSearch>("/searches", {
         name: searchName || category.name + " · " + criteria.city,
         criteria,
-        monitor,
       });
       setSaved((x) => [...x, s]);
       setSearchName("");
-      ctx.notify("Search saved" + (monitor ? " with daily monitoring." : "."));
+      ctx.notify("Search saved.");
     } catch (e: any) {
       ctx.notify(e.message, true);
     } finally {
@@ -373,24 +371,11 @@ export default function Discovery({
                 onChange={(e) => setSearchName(e.target.value)}
                 maxLength={120}
               />
-              <CheckLine
-                checked={monitor}
-                onChange={setMonitor}
-                disabled={!ctx.integrations.braveConfigured}
-              >
-                Monitor daily
-              </CheckLine>
               <Button variant="secondary" busy={saving} onClick={save}>
                 <Bookmark size={15} />
                 Save search
               </Button>
             </div>
-            {!ctx.integrations.braveConfigured && (
-              <p className="small-note">
-                Daily monitoring becomes available after adding a Brave Search
-                API key in Settings.
-              </p>
-            )}
           </section>
           <section className="panel search-results">
             <div className="panel-heading">
@@ -477,7 +462,7 @@ export default function Discovery({
                   <div>
                     <strong>{s.name}</strong>
                     <small>
-                      {s.monitor ? "Daily monitoring enabled" : "Saved search"}
+                      Saved search
                     </small>
                   </div>
                   <Button
@@ -512,7 +497,7 @@ export default function Discovery({
                       onClick={async () => {
                         if (
                           !confirm(
-                            "Delete this saved search and its collected signals?",
+                            "Delete this saved search?",
                           )
                         )
                           return;

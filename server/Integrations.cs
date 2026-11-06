@@ -40,38 +40,6 @@ public class GeminiService(DeskDb db, SettingsService settings, IHttpClientFacto
     public static object Schema(Dictionary<string, object> properties) => new { type = "object", properties, required = properties.Keys.ToArray(), additionalProperties = false };
     public static object Str = new { type = "string" };
 }
-public class SignalService(DeskDb db, SettingsService settings, IHttpClientFactory factory)
-{
-    static readonly SemaphoreSlim Gate = new(1, 1);
-    public async Task<int> Run(SavedSearch search)
-    {
-        var key = await settings.Get("braveKey"); if (key == "") throw new DeskError("Add a Brave Search API key in Settings to monitor buying signals.", 503);
-        if (!await Gate.WaitAsync(0)) throw new DeskError("A signal search is already running. Please try again shortly.", 409);
-        try
-        {
-            var c = JsonSerializer.Deserialize<SearchCriteria>(search.Criteria, new JsonSerializerOptions { PropertyNameCaseInsensitive = true }) ?? new(); var terms = (c.Phrases != "" ? c.Phrases : c.Keywords) + " " + c.City;
-            using var req = new HttpRequestMessage(HttpMethod.Get, "https://api.search.brave.com/res/v1/web/search?q=" + Uri.EscapeDataString(terms) + "&count=10&freshness=pw"); req.Headers.Add("X-Subscription-Token", key); req.Headers.Add("Accept", "application/json");
-            using var client = factory.CreateClient(); client.Timeout = TimeSpan.FromSeconds(30); using var res = await client.SendAsync(req); if (!res.IsSuccessStatusCode) throw new DeskError("The search provider could not complete this request. Check its key and quota.", 502);
-            var root = JsonNode.Parse(await res.Content.ReadAsStringAsync()); var existing = await db.Signals.Where(x => x.SearchId == search.Id).Select(x => x.Url).ToListAsync(); int count = 0;
-            foreach (var item in root?["web"]?["results"]?.AsArray() ?? []) { var url = item?["url"]?.GetValue<string>() ?? ""; if (!Uri.TryCreate(url, UriKind.Absolute, out var u) || u.Scheme != "https" || existing.Contains(url)) continue; db.Signals.Add(new() { SearchId = search.Id, Title = item?["title"]?.GetValue<string>() ?? "", Url = url, Snippet = item?["description"]?.GetValue<string>() ?? "" }); existing.Add(url); count++; }
-            search.LastRunAt = DateTime.UtcNow; search.LastError = ""; await db.SaveChangesAsync(); return count;
-        }
-        catch (Exception e) when (e is DeskError or HttpRequestException or TaskCanceledException or JsonException) { search.LastRunAt = DateTime.UtcNow; search.LastError = e is DeskError ? e.Message : "Signal search failed. Check provider connectivity."; await db.SaveChangesAsync(); throw new DeskError(search.LastError, 502); }
-        finally { Gate.Release(); }
-    }
-}
-public class MonitorWorker(IServiceScopeFactory scopes, ILogger<MonitorWorker> log) : BackgroundService
-{
-    protected override async Task ExecuteAsync(CancellationToken stoppingToken)
-    {
-        using var timer = new PeriodicTimer(TimeSpan.FromMinutes(30));
-        while (await timer.WaitForNextTickAsync(stoppingToken))
-        {
-            try { using var scope = scopes.CreateScope(); var db = scope.ServiceProvider.GetRequiredService<DeskDb>(); var settings = scope.ServiceProvider.GetRequiredService<SettingsService>(); if (await settings.Get("braveKey") == "") continue; var due = DateTime.UtcNow.AddDays(-1); var list = await db.Searches.Where(x => x.Monitor && (x.LastRunAt == null || x.LastRunAt < due)).ToListAsync(); foreach (var s in list) { try { await scope.ServiceProvider.GetRequiredService<SignalService>().Run(s); } catch (DeskError) { log.LogWarning("A scheduled signal search failed; review its status in the application."); } } }
-            catch (Exception e) when (e is not OperationCanceledException) { log.LogWarning("Signal monitor could not complete a cycle."); }
-        }
-    }
-}
 public record OAuthState(string Nonce, string StaffId, DateTime ExpiresAt);
 public static class LinkedInOAuth
 {
@@ -99,6 +67,6 @@ public static class LinkedInOAuth
         using var profileReq = new HttpRequestMessage(HttpMethod.Get, "https://api.linkedin.com/v2/userinfo"); profileReq.Headers.Authorization = new("Bearer", bearer); using var profileRes = await client.SendAsync(profileReq); if (!profileRes.IsSuccessStatusCode) throw new DeskError("LinkedIn profile verification failed. Confirm OpenID Connect access in your developer app.", 502);
         var profile = JsonNode.Parse(await profileRes.Content.ReadAsStringAsync())!; var sub = profile["sub"]?.GetValue<string>(); if (string.IsNullOrWhiteSpace(sub)) throw new DeskError("LinkedIn returned no account identifier.", 502);
         var account = await db.LinkedInAccounts.FindAsync(state.StaffId); if (account == null) { account = new() { StaffId = state.StaffId }; db.LinkedInAccounts.Add(account); }
-        account.Sub = sub; account.Name = profile["name"]?.GetValue<string>() ?? "LinkedIn member"; account.Email = profile["email"]?.GetValue<string>() ?? ""; account.ProtectedToken = protection.CreateProtector("LeadDesk.LinkedInToken.v1").Protect(bearer); account.ExpiresAt = DateTime.UtcNow.AddSeconds(seconds); Leads.Audit(db, state.StaffId, "Connected LinkedIn"); await db.SaveChangesAsync(); return Results.Redirect("/?linkedin=connected#settings");
+        account.Sub = sub; account.Name = profile["name"]?.GetValue<string>() ?? "LinkedIn member"; account.Email = profile["email"]?.GetValue<string>() ?? ""; account.ProtectedToken = protection.CreateProtector("LeadDesk.LinkedInToken.v1").Protect(bearer); account.ExpiresAt = DateTime.UtcNow.AddSeconds(seconds); await db.SaveChangesAsync(); return Results.Redirect("/?linkedin=connected#settings");
     }
 }

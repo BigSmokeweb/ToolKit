@@ -18,7 +18,7 @@ public static class Security
 public class SettingsService(DeskDb db, IDataProtectionProvider protection, IConfiguration config)
 {
     readonly IDataProtector protector = protection.CreateProtector("LeadDesk.Secrets.v1");
-    public static readonly HashSet<string> Secrets = ["geminiKey", "linkedinClientSecret", "braveKey"];
+    public static readonly HashSet<string> Secrets = ["geminiKey", "linkedinClientSecret"];
     public static readonly Dictionary<string, string> Defaults = new() { { "senderName", "NoLegalPaisa" }, { "inviteLimit", "15" }, { "targetCities", "Mumbai, Delhi, Gurugram, Noida, Bengaluru, Pune, Hyderabad, Jaipur, Ahmedabad, Chennai" }, { "retentionDays", "365" }, { "geminiModel", "gemini-3.1-flash-lite" }, { "aiDailyLimit", "50" }, { "linkedinClientId", "" }, { "linkedinCallback", "https://localhost:7443/auth/linkedin/callback" }, { "companyUrl", "" }, { "senderProfile", "" } };
     public async Task<string> Get(string key) { var row = await db.Settings.FindAsync(key); if (row != null) { if (!Secrets.Contains(key)) return row.Value; try { return protector.Unprotect(row.Value); } catch { return ""; } } return config[$"Secrets:{key}"] ?? (key == "geminiModel" ? config["Gemini:Model"] : null) ?? Defaults.GetValueOrDefault(key, ""); }
     public async Task Set(string key, string value) { var row = await db.Settings.FindAsync(key); if (row == null) { row = new() { Key = key }; db.Settings.Add(row); } row.Value = Secrets.Contains(key) ? protector.Protect(value) : value; }
@@ -54,7 +54,6 @@ public static class Leads
         l.CredibilityScore = l.Checks.Where(c => c.Verified).Sum(c => CheckWeights.GetValueOrDefault(c.Kind));
     }
     public static bool Duplicate(Lead l, LeadInput i) => (i.LinkedInUrl.Trim() != "" && l.LinkedInUrl == Url(i.LinkedInUrl, true)) || (i.Email.Trim() != "" && l.Email == Security.Email(i.Email)) || (i.Company.Trim() != "" && l.Name.Equals(i.Name.Trim(), StringComparison.OrdinalIgnoreCase) && l.Company.Equals(i.Company.Trim(), StringComparison.OrdinalIgnoreCase));
-    public static void Audit(DeskDb db, string actor, string action, string leadId = "", string detail = "") => db.AuditLog.Add(new() { StaffId = actor, Action = action, LeadId = leadId, Detail = detail });
     public static async Task<Lead> Get(DeskDb db, string id, bool trash = false) => await db.Leads.Include(x => x.Checks).SingleOrDefaultAsync(x => x.Id == id && (trash || x.DeletedAt == null)) ?? throw new DeskError("Lead not found.", 404);
     public static void Editable(Staff staff, Lead lead) { if (staff.Role != "Admin" && lead.OwnerId != "" && lead.OwnerId != staff.Id) throw new DeskError("This lead belongs to another team member.", 403); }
 }

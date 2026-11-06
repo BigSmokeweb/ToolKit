@@ -87,26 +87,6 @@ export interface SavedSearch {
   staffId: string;
   name: string;
   criteria: string;
-  monitor: boolean;
-  lastRunAt: string | null;
-  lastError: string;
-}
-export interface Signal {
-  id: string;
-  searchId: string;
-  title: string;
-  url: string;
-  snippet: string;
-  reviewed: boolean;
-  at: string;
-}
-export interface Activity {
-  id: string;
-  staffId: string;
-  leadId: string;
-  action: string;
-  detail: string;
-  at: string;
 }
 export interface Outreach {
   id: string;
@@ -127,7 +107,6 @@ export interface Integration {
     expiresAt: string;
     expired: boolean;
   } | null;
-  braveConfigured: boolean;
   callback: string;
 }
 export interface Overview {

@@ -2,8 +2,8 @@
 import http from 'node:http';
 import {pathToFileURL} from 'node:url';
 
-const readRoutes = /^(?:\/api\/(?:health|workspace|staff|categories|overview|activity|outreach|integrations|export|searches|signals|ai\/usage)|\/api\/leads(?:\/[^/]+(?:\/history)?)?)$/;
-const writeRoutes = /^(?:\/api\/(?:discovery|leads|leads\/import|searches|signals\/[^/]+\/review|searches\/[^/]+\/run|ai\/(?:test|build-search|extract-leads|draft-message|prepare-lead))|\/api\/leads\/[^/]+\/(?:outreach|restore))$/;
+const readRoutes = /^(?:\/api\/(?:health|workspace|staff|categories|overview|integrations|export|searches|ai\/usage)|\/api\/leads(?:\/[^/]+(?:\/outreach)?)?)$/;
+const writeRoutes = /^(?:\/api\/(?:discovery|leads|leads\/import|searches|ai\/(?:test|build-search|extract-leads|draft-message|prepare-lead))|\/api\/leads\/[^/]+\/(?:outreach|restore))$/;
 const extensionRoutes = /^\/api\/browser-capture\/(?:pair|status|import|import-many)$/;
 export function allowed(method, path) {
   if(extensionRoutes.test(path))return ['GET','POST','OPTIONS'].includes(method);

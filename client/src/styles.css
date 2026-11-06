@@ -1232,11 +1232,6 @@ strong {
   color: #a492bb;
   border-color: #eae1f1;
 }
-.integration-icon.brave {
-  background: #fcf0e8;
-  color: #bb906c;
-  border-color: #efe0d4;
-}
 .empty {
   padding: 40px 25px;
   display: flex;
@@ -1989,157 +1984,6 @@ td {
 .saved-search-row .button {
   font-size: 11px;
 }
-.activity-list {
-  padding: 5px 24px;
-}
-.activity-list article {
-  display: flex;
-  gap: 14px;
-  align-items: flex-start;
-  padding: 20px 0;
-  border-bottom: 1px solid #edf1e6;
-}
-.activity-list article:last-child {
-  border-bottom: 0;
-}
-.activity-dot {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  width: 31px;
-  height: 31px;
-  background: #f0f5e9;
-  border: 1px solid #e5eddb;
-  border-radius: 9px;
-  color: #a1b58a;
-  flex-shrink: 0;
-}
-.activity-list article > div {
-  flex: 1;
-}
-.activity-list strong {
-  font-size: 11px;
-  font-weight: 500;
-  display: block;
-  color: #7a9365;
-}
-.activity-list p {
-  font-size: 11px;
-  color: #8da07a;
-  margin: 7px 0;
-  line-height: 1.9;
-  overflow-wrap: anywhere;
-}
-.activity-list small {
-  font-size: 11px;
-  display: block;
-  color: #a9b89a;
-  margin-top: 6px;
-}
-.activity-list > article > svg {
-  color: #a6b994;
-  margin-top: 3px;
-}
-.signal-setup {
-  background: #f0f3e7;
-  border: 1px solid #e0e9d3;
-  border-radius: 10px;
-  padding: 29px;
-  display: flex;
-  gap: 22px;
-  margin-bottom: 23px;
-}
-.signal-setup .empty-icon {
-  flex-shrink: 0;
-  background: #e4edd7;
-  margin: 0;
-}
-.signal-setup h2 {
-  font-size: 22px;
-  font-weight: 450;
-  color: #6c8556;
-  margin: 12px 0;
-}
-.signal-setup p {
-  font-size: 11px;
-  color: #96a780;
-  max-width: 700px;
-  margin-bottom: 18px;
-}
-.signals-layout {
-  display: grid;
-  grid-template-columns: 1fr 1.5fr;
-  gap: 22px;
-  align-items: start;
-}
-.watch-row {
-  display: flex;
-  gap: 15px;
-  align-items: center;
-  justify-content: space-between;
-  padding: 20px 22px;
-  border-bottom: 1px solid #edf1e4;
-}
-.watch-row strong {
-  font-size: 11px;
-  font-weight: 500;
-  display: block;
-  color: #7a9465;
-}
-.watch-row small {
-  display: block;
-  color: #adba9b;
-  font-size: 10px;
-  margin-top: 7px;
-}
-.watch-row p {
-  font-size: 11px;
-  margin-top: 8px;
-}
-.watch-row .button {
-  font-size: 12px;
-}
-.signal-list article {
-  padding: 22px 25px;
-  border-bottom: 1px solid #eaf0e1;
-}
-.signal-meta {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 12px;
-}
-.signal-meta small {
-  font-size: 11px;
-  color: #adbc9b;
-}
-.signal-list h3 {
-  font-size: 13px;
-  line-height: 1.6;
-  color: #6f905a;
-}
-.signal-list h3 a {
-  display: inline;
-  overflow-wrap: anywhere;
-}
-.signal-list h3 svg {
-  display: inline;
-  vertical-align: middle;
-  margin-left: 6px;
-}
-.signal-list p {
-  font-size: 12px;
-  color: #a0b38d;
-  margin-top: 10px;
-}
-.signal-list .list-subbar {
-  padding: 13px 0 0;
-  flex-wrap: wrap;
-  gap: 10px;
-}
-.signal-list .list-subbar > small {
-  margin-right: auto;
-}
 .settings-tabs {
   padding: 0;
   margin-bottom: 25px;
@@ -2630,9 +2474,6 @@ td {
 }
 .lead-history > p {
   font-size: 12px;
-}
-.lead-history .activity-list {
-  padding: 0;
 }
 .upload-zone {
   width: 100%;
@@ -3313,9 +3154,6 @@ td {
   .settings-grid {
     grid-template-columns: 1fr;
   }
-  .signals-layout {
-    grid-template-columns: 1fr;
-  }
   .auth-story h1 {
     font-size: 32px;
   }
@@ -3776,33 +3614,6 @@ td {
   .import-review .panel-heading p {
     font-size: 11px;
   }
-  .signal-setup {
-    padding: 22px;
-    gap: 15px;
-  }
-  .signal-setup .empty-icon {
-    width: 42px;
-    height: 42px;
-    border-radius: 11px;
-  }
-  .signal-setup h2 {
-    font-size: 19px;
-  }
-  .signal-setup p {
-    font-size: 12px;
-  }
-  .signal-setup .button {
-    font-size: 12px;
-  }
-  .signals-layout .panel-heading {
-    align-items: flex-start;
-  }
-  .signals-layout .panel-heading h2 {
-    font-size: 14px;
-  }
-  .watch-row {
-    padding: 17px;
-  }
   .settings-tabs {
     gap: 23px;
   }
@@ -3930,18 +3741,6 @@ td {
   }
   .auth-footer {
     bottom: 22px;
-  }
-  .activity-list {
-    padding: 4px 18px;
-  }
-  .activity-list article {
-    padding: 18px 0;
-  }
-  .activity-list p {
-    font-size: 12px;
-  }
-  .activity-list .text-button {
-    font-size: 11px;
   }
 }
 @media (max-width: 400px) {

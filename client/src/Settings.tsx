@@ -8,7 +8,6 @@ import {
   Linkedin,
   LockKeyhole,
   Plus,
-  Radio,
   Save,
   ShieldCheck,
   Sparkles,
@@ -51,7 +50,6 @@ export default function SettingsPage({ ctx }: { ctx: Context }) {
       ) as Record<string, string>),
       geminiKey: "",
       linkedinClientSecret: "",
-      braveKey: "",
     });
   }
   useEffect(() => {
@@ -75,7 +73,6 @@ export default function SettingsPage({ ctx }: { ctx: Context }) {
         ...v,
         geminiKey: "",
         linkedinClientSecret: "",
-        braveKey: "",
       }));
       await ctx.refresh();
       ctx.notify("Settings saved.");
@@ -552,73 +549,7 @@ export default function SettingsPage({ ctx }: { ctx: Context }) {
             </div>
           </section>
           <BrowserCaptureSettings ctx={ctx} />
-          <section className="panel integration-settings wide-panel">
-            <div className="panel-heading">
-              <div className="integration-title">
-                <span className="integration-icon brave">
-                  <Radio size={22} />
-                </span>
-                <div>
-                  <h2>Public buying-signal monitoring</h2>
-                  <p>Use Brave Search to watch for relevant public events.</p>
-                </div>
-              </div>
-              <Badge
-                tone={ctx.integrations.braveConfigured ? "green" : "neutral"}
-              >
-                {ctx.integrations.braveConfigured
-                  ? "Key configured"
-                  : "Optional"}
-              </Badge>
-            </div>
-            <div className="padding">
-              <p className="muted">
-                Save a search with daily monitoring enabled. While this server
-                is running, it collects fresh public results once a day for your
-                team to review. It does not extract private LinkedIn data.
-              </p>
-              {admin && (
-                <>
-                  <Field label="Brave Search API key">
-                    <input
-                      type="password"
-                      value={values.braveKey || ""}
-                      onChange={(e) => change("braveKey", e.target.value)}
-                      autoComplete="new-password"
-                      placeholder={
-                        settings.braveKeyConfigured
-                          ? "•••••••• · saved"
-                          : "Optional provider key"
-                      }
-                    />
-                  </Field>
-                  <div className="actions">
-                    <Button
-                      variant="secondary"
-                      busy={busy === "save"}
-                      onClick={() => save(["braveKey"])}
-                    >
-                      Save monitoring setup
-                    </Button>
-                    <External
-                      className="text-button"
-                      href="https://api-dashboard.search.brave.com/"
-                    >
-                      Get a provider key
-                    </External>
-                    {!!settings.braveKeyConfigured && (
-                      <Button
-                        variant="ghost"
-                        onClick={() => clearSecret("braveKey")}
-                      >
-                        Remove key
-                      </Button>
-                    )}
-                  </div>
-                </>
-              )}
-            </div>
-          </section>
+
         </div>
       )}
       {tab === "workspace" && admin && (

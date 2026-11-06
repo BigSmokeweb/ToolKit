@@ -63,7 +63,6 @@ public class BrowserCaptureService(DeskDb db, IDataProtectionProvider protection
         var row = await db.Settings.FindAsync(Key);
         if (row == null) { row = new AppSetting { Key = Key }; db.Settings.Add(row); }
         row.Value = protector.Protect(JsonSerializer.Serialize(new CaptureCredential(Hash(token), id, DateTime.UtcNow)));
-        Leads.Audit(db, c.UserId(), "Paired browser capture extension");
         await db.SaveChangesAsync();
         return new { token, paired = true };
     }
@@ -81,7 +80,6 @@ public class BrowserCaptureService(DeskDb db, IDataProtectionProvider protection
         Codes.Clear();
         var row = await db.Settings.FindAsync(Key);
         if (row != null) row.Value = "";
-        Leads.Audit(db, c.UserId(), "Revoked browser capture access");
         await db.SaveChangesAsync();
     }
 }

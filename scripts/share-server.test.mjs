@@ -6,7 +6,7 @@ import {allowed,createShareServer} from './share-server.mjs';
 
 test('allows normal pipeline and real AI work',()=>{
  assert.equal(allowed('POST','/api/browser-capture/import-many'),true);
- for(const [method,path] of [['GET','/api/leads'],['GET','/api/leads/abc/history'],['POST','/api/leads'],['PUT','/api/leads/abc'],['DELETE','/api/leads/abc'],['POST','/api/ai/prepare-lead'],['POST','/api/ai/test'],['POST','/api/browser-capture/import'],['POST','/api/browser-capture/pair'],['GET','/downloads/lead-desk-capture.zip']])assert.equal(allowed(method,path),true,method+' '+path);
+ for(const [method,path] of [['GET','/api/leads'],['GET','/api/leads/abc/outreach'],['POST','/api/leads'],['PUT','/api/leads/abc'],['DELETE','/api/leads/abc'],['POST','/api/ai/prepare-lead'],['POST','/api/ai/test'],['POST','/api/browser-capture/import'],['POST','/api/browser-capture/pair'],['GET','/downloads/lead-desk-capture.zip']])assert.equal(allowed(method,path),true,method+' '+path);
 });
 test('blocks owner-only administrative operations',()=>{
  for(const [method,path] of [['GET','/api/settings'],['PUT','/api/settings'],['DELETE','/api/settings/secrets/geminiKey'],['DELETE','/api/integrations/linkedin'],['POST','/api/integrations/linkedin/start'],['GET','/auth/linkedin/callback'],['POST','/api/browser-capture/pairing-code'],['DELETE','/api/browser-capture/pairing'],['POST','/api/staff'],['POST','/api/categories'],['POST','/api/samples'],['POST','/api/retention/archive'],['DELETE','/api/leads/id/purge']])assert.equal(allowed(method,path),false,method+' '+path);
