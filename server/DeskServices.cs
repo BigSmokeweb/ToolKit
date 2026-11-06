@@ -60,6 +60,9 @@ public static class Leads
 }
 public static class Discovery
 {
+    // Basic LinkedIn search limits Boolean operators. Keep the primary people link simple;
+    // broad alternatives must not inherit exclusions or a restrictive network filter.
+    static string FirstTerm(string value) => Regex.Split(value ?? "", @",|;|\r?\n|\s+(?:OR|AND|NOT)\s+", RegexOptions.IgnoreCase).Select(x => Regex.Replace(x, "[\\\"()]", "").Trim()).FirstOrDefault(x => x != "") ?? "";
     static string Or(string v) => string.Join(" OR ", v.Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries).Select(x => x.Contains(' ') ? "\"" + x.Replace("\"", "") + "\"" : x));
     public static object[] Links(SearchCriteria c)
     {
@@ -68,8 +71,14 @@ public static class Discovery
         string Q(string x) => Uri.EscapeDataString(x); var network = c.Network is "F" or "S" or "O" ? "&network=" + Q("[\"" + c.Network + "\"]") : ""; var geo = c.City.Equals("India", StringComparison.OrdinalIgnoreCase) ? "&geoUrn=%5B%22102713980%22%5D" : "";
         var time = c.Time == "day" ? "past-24h" : c.Time == "month" ? "past-month" : "past-week"; var secs = c.Time == "day" ? 86400 : c.Time == "month" ? 2592000 : 604800; var p = Or(c.Phrases); if (p == "") p = Or(c.Keywords); var positive = string.Join(' ', new[] { titles != "" ? $"({titles})" : "", keys != "" ? $"({keys})" : "" }.Where(x => x != "")); var google = "site:linkedin.com/in " + positive + " " + c.City + " " + string.Join(' ', excludes.Select(x => "-" + (x.Contains(' ') ? "\"" + x + "\"" : x)));
         object Link(string name, string type, string description, string q, string url) => new { name, type, description, query = q, url };
+        var role = FirstTerm(c.Titles); var topic = FirstTerm(c.Keywords);
+        var peopleQuery = string.Join(' ', new[] { role, topic }.Where(x => x != "").Distinct(StringComparer.OrdinalIgnoreCase));
+        if (peopleQuery == "") peopleQuery = "Founder";
+        var broadQuery = role != "" ? role : topic != "" ? topic : "Founder";
+        var peopleLocation = geo == "" && !string.IsNullOrWhiteSpace(c.City) ? " " + c.City : "";
         return [
-         Link("People","LinkedIn","Decision-makers in your own LinkedIn session",query,"https://www.linkedin.com/search/results/people/?keywords="+Q(query+(geo==""?" "+c.City:""))+network+geo+"&origin=FACETED_SEARCH"),
+         Link("People","LinkedIn","Simple search: first role + first keyword. Refine location and connections inside LinkedIn.",peopleQuery+peopleLocation,"https://www.linkedin.com/search/results/people/?keywords="+Q(peopleQuery+peopleLocation)+geo+"&origin=GLOBAL_SEARCH_HEADER"),
+         Link("People · broader search","LinkedIn","If results are empty, search by role only across all locations and connections.",broadQuery,"https://www.linkedin.com/search/results/people/?keywords="+Q(broadQuery)+"&origin=GLOBAL_SEARCH_HEADER"),
    Link("Recent posts","LinkedIn","Find people talking about the need now",p,"https://www.linkedin.com/search/results/content/?keywords="+Q(p)+"&datePosted="+Q("\""+time+"\"")+"&sortBy=%22date_posted%22"),
    Link("Hiring signals","LinkedIn","Companies hiring for the problem you solve",c.Jobs,"https://www.linkedin.com/jobs/search/?keywords="+Q(c.Jobs)+"&location="+Q(c.City)+"&f_TPR=r"+secs),
    Link("Companies","LinkedIn","Find accounts, then review their People tab",keys,"https://www.linkedin.com/search/results/companies/?keywords="+Q(keys)+"&origin=FACETED_SEARCH"+(c.Size!=""?"&companySize="+Q("[\""+c.Size+"\"]"):"")),

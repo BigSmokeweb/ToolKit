@@ -399,8 +399,9 @@ export default function Discovery({
                 <div>
                   <h2>Open a search. Start exploring.</h2>
                   <p>
-                    These links open in your own accounts. Review profiles
-                    before importing.
+                    Start with People. If LinkedIn shows no matches, use People · broader search.
+                    People searches use your first role and keyword to avoid LinkedIn’s Boolean limits;
+                    apply additional filters inside LinkedIn. Review profiles before importing.
                   </p>
                 </div>
               </div>
