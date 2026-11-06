@@ -31,15 +31,15 @@ Check("repeat captures from a post deduplicate even without a company", () => As
 Check("different people in the same post remain separate", () => Assert(!CaptureRules.Duplicate(new Lead { Name = "Priya Demo", SourceUrl = "https://www.linkedin.com/feed/update/urn:li:activity:123" }, new LeadInput(Name: "Another Person", SourceUrl: "https://www.linkedin.com/feed/update/urn:li:activity:123"))));
 Check("People recommendation selects service decision-makers from the entire list", () => {
     var query = Discovery.PeopleQuery(new(Titles: "Data Protection Officer, Head of Compliance, CISO, Founder, CTO", Keywords: "healthtech, fintech, SaaS", CategoryId: "dpdp"));
-    Assert(query == "(CTO OR Founder) (SaaS OR fintech)");
-    Assert(System.Text.RegularExpressions.Regex.Matches(query, @"\bOR\b").Count <= 2 && !query.Contains("NOT"));
+    Assert(query == "(CTO OR Founder OR CISO) (SaaS OR fintech OR healthtech)");
+    Assert(System.Text.RegularExpressions.Regex.Matches(query, @"\bOR\b").Count == 4 && !query.Contains("NOT"));
 });
 Check("People recommendation follows the selected service", () => {
-    Assert(Discovery.PeopleQuery(new(Titles: "CTO, COO, Procurement Head, Head of HR", Keywords: "operations", CategoryId: "contracts")) == "(\"Head of HR\" OR \"Procurement Head\") operations");
+    Assert(Discovery.PeopleQuery(new(Titles: "CTO, COO, Procurement Head, Head of HR", Keywords: "operations", CategoryId: "contracts")) == "(\"Head of HR\" OR \"Procurement Head\" OR COO) operations");
 });
 Check("custom searches preserve entered priority and quote multiword roles", () => {
     Assert(Discovery.PeopleQuery(new(Titles: "CTO, cto, Head of Compliance", Keywords: "SaaS")) == "(CTO OR \"Head of Compliance\") SaaS");
-    Assert(Discovery.PeopleQuery(new(Titles: "Architect, Designer, Founder", Keywords: "sustainable design, interiors")) == "(Architect OR Designer) (\"sustainable design\" OR interiors)");
+    Assert(Discovery.PeopleQuery(new(Titles: "Architect, Designer, Founder", Keywords: "sustainable design, interiors")) == "(Architect OR Designer OR Founder) (\"sustainable design\" OR interiors)");
 });
 Check("People recommendation has sensible empty-field fallbacks", () => {
     Assert(Discovery.PeopleQuery(new()) == "Founder");

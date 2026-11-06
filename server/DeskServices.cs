@@ -76,7 +76,7 @@ public static class Discovery
         int Rank(string term) { var match = Array.FindIndex(priorities, p => Regex.IsMatch(term, p, RegexOptions.IgnoreCase)); return match < 0 ? priorities.Length : match; }
         // Consider the whole list, favor service decision-makers, then keep the query focused.
         // Stable ordering preserves the user's priority for custom roles and tied matches.
-        return terms.OrderBy(Rank).Take(2).ToArray();
+        return terms.OrderBy(Rank).Take(3).ToArray();
     }
     public static string PeopleQuery(SearchCriteria criteria)
     {
@@ -84,7 +84,7 @@ public static class Discovery
         var topics = Terms(string.IsNullOrWhiteSpace(criteria.Keywords) ? criteria.CompanyType : criteria.Keywords);
         string[] rolePriority = criteria.CategoryId switch
         {
-            "dpdp" => [@"\bcto\b|chief technology", @"\bfounder\b|\bceo\b", @"data protection|\bdpo\b", @"\bciso\b|compliance"],
+            "dpdp" => [@"\bcto\b|chief technology", @"\bfounder\b|\bceo\b", @"\bciso\b|chief information security", @"data protection|\bdpo\b", @"compliance"],
             "contracts" => [@"\bhr\b|human resources", @"procurement", @"\bcoo\b|operations"],
             "professionals" => [@"lawyer|advocate|counsel", @"chartered accountant|\bca\b", @"company secretary|\bcs\b"],
             "trademark" => [@"\bfounder\b|\bceo\b", @"brand|marketing"],
