@@ -60,6 +60,14 @@ export default function BrowserCaptureSettings({ ctx }: { ctx: Context }) {
       </div>
       <div className="padding">
         <p className="muted">
+          On a LinkedIn People results page, click the pinned LD icon once to
+          add all identifiable results on that page directly to Lead Desk.
+          Duplicates are skipped and no AI requests are needed. For per-person
+          hover buttons, right-click an empty area of the results page and
+          choose “Show Lead Desk hover / Add all buttons.” The result tab also
+          offers a CSV download.
+        </p>
+        <p className="muted">
           Select the person’s name, headline and relevant post in LinkedIn.
           Click the pinned LD icon or right-click → Save selected text to Lead
           Desk. Gemini suggests buyer/partner status and category; the app fills
@@ -79,9 +87,12 @@ export default function BrowserCaptureSettings({ ctx }: { ctx: Context }) {
             <strong>Pair extension</strong>.
           </li>
           <li>
-            Pin the LD icon. Open a LinkedIn profile or individual post, select
-            the relevant text, then click LD to capture. Review the saved lead
-            before any outreach.
+            Pin the LD icon. On People search results, click LD to import the
+            displayed people together. On an individual profile or post,
+            select relevant text first, then click LD for AI-assisted capture.
+            Review saved leads before outreach. Existing installations: reload
+            Lead Desk Capture in chrome://extensions after an update; pairing
+            is preserved.
           </li>
         </ol>
         <div className="actions">
@@ -159,11 +170,11 @@ export default function BrowserCaptureSettings({ ctx }: { ctx: Context }) {
           </p>
         )}
         <p className="small-note">
-          Capture is user-triggered and limited to selected text on LinkedIn
-          profiles and individual posts. It does not read LinkedIn passwords or
-          cookies, crawl your account, or send messages. The selected text is
-          processed by your configured Gemini service. Keep the local app
-          running.
+          Capture runs only when you invoke it. People results send displayed
+          card details to the paired app without AI; individual profiles and
+          posts send selected text to your configured Gemini service. It does
+          not read passwords or cookies, crawl additional pages, or send
+          messages. Keep the paired app running.
         </p>
         {error && (
           <div className="error-box" role="alert">

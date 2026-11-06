@@ -73,6 +73,31 @@ api.MapPost("/browser-capture/pairing-code", (BrowserCaptureService capture) => 
 api.MapDelete("/browser-capture/pairing", async (HttpContext c, BrowserCaptureService capture) => { await capture.Revoke(c); return Results.Ok(new { ok = true }); });
 api.MapPost("/browser-capture/pair", async (PairInput input, HttpContext c, BrowserCaptureService capture) => await capture.Pair(input, c));
 api.MapGet("/browser-capture/status", () => new { paired = true });
+api.MapPost("/browser-capture/import-many", async (PeopleCaptureInput input, HttpContext c, DeskDb db, SettingsService settings) =>
+{
+    // Validate the entire batch before any write. No AI or per-profile requests are needed.
+    var rows = CaptureRules.PreparePeople(input);
+    var actor = await c.Staff(db);
+    await leadGate.WaitAsync();
+    try
+    {
+        var existing = await db.Leads.Where(x => x.DeletedAt == null).ToListAsync();
+        var cities = await settings.Get("targetCities"); var imported = 0; var duplicates = 0;
+        var records = new List<object>();
+        foreach (var row in rows)
+        {
+            var match = existing.FirstOrDefault(l => Leads.Duplicate(l, row));
+            if (match != null) { duplicates++; records.Add(new { id = match.Id, name = match.Name, duplicate = true }); continue; }
+            var lead = new Lead(); Leads.Apply(lead, row with { OwnerId = actor.Id }, actor.Id, cities);
+            db.Leads.Add(lead); existing.Add(lead); imported++;
+            Leads.Audit(db, actor.Id, "Captured from LinkedIn People results", lead.Id);
+            records.Add(new { id = lead.Id, name = lead.Name, duplicate = false });
+        }
+        await db.SaveChangesAsync();
+        return Results.Ok(new { imported, duplicates, total = rows.Count, records });
+    }
+    finally { leadGate.Release(); }
+});
 api.MapPost("/ai/prepare-lead", async (CaptureInput input, HttpContext c, CapturePreparationService capture) => await capture.Prepare(input, c.UserId()));
 api.MapPost("/browser-capture/import", async (CaptureInput input, HttpContext c, DeskDb db, SettingsService settings, CapturePreparationService capture) =>
 {

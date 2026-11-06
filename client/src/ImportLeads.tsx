@@ -181,7 +181,7 @@ export default function ImportLeads({
               </span>
               <strong>{fileName || "Choose a CSV or drop it here"}</strong>
               <span>
-                LinkedIn Connections.csv or your own export · 500 rows · 2 MB
+                Lead Desk capture CSV, LinkedIn Connections.csv or your own export · 500 rows · 2 MB
                 max
               </span>
               <small>

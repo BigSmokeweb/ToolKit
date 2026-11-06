@@ -5,6 +5,7 @@ import {once} from 'node:events';
 import {allowed,createShareServer} from './share-server.mjs';
 
 test('allows normal pipeline and real AI work',()=>{
+ assert.equal(allowed('POST','/api/browser-capture/import-many'),true);
  for(const [method,path] of [['GET','/api/leads'],['GET','/api/leads/abc/history'],['POST','/api/leads'],['PUT','/api/leads/abc'],['DELETE','/api/leads/abc'],['POST','/api/ai/prepare-lead'],['POST','/api/ai/test'],['POST','/api/browser-capture/import'],['POST','/api/browser-capture/pair'],['GET','/downloads/lead-desk-capture.zip']])assert.equal(allowed(method,path),true,method+' '+path);
 });
 test('blocks owner-only administrative operations',()=>{

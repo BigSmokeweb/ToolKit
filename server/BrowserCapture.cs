@@ -10,6 +10,8 @@ using System.Text.RegularExpressions;
 namespace LeadDesk;
 
 public record CaptureInput(string Text = "", string SourceUrl = "");
+public record PeopleCapturePerson(string Name = "", string Title = "", string Company = "", string City = "", string LinkedInUrl = "", string SourceText = "");
+public record PeopleCaptureInput(List<PeopleCapturePerson>? People = null, string SourceUrl = "");
 public record PairInput(string Code = "", string ExtensionId = "");
 public record CaptureCredential(string TokenHash, string ExtensionId, DateTime PairedAt);
 public record CapturePreparation(LeadInput Lead, string Relationship, string Assessment);
@@ -21,7 +23,7 @@ public class BrowserCaptureService(DeskDb db, IDataProtectionProvider protection
     readonly IDataProtector protector = protection.CreateProtector("LeadDesk.BrowserCapture.v1");
     static string Hash(string value) => Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(value)));
     public static bool ExtensionIdValid(string id) => Regex.IsMatch(id, "^[a-p]{32}$");
-    public static bool IsExtensionRoute(PathString path) => path == "/api/browser-capture/pair" || path == "/api/browser-capture/import" || path == "/api/browser-capture/status";
+    public static bool IsExtensionRoute(PathString path) => path == "/api/browser-capture/pair" || path == "/api/browser-capture/import" || path == "/api/browser-capture/import-many" || path == "/api/browser-capture/status";
     public static string RequestExtension(HttpContext c)
     {
         var id = c.Request.Headers["X-Lead-Desk-Extension"].ToString();
@@ -86,6 +88,23 @@ public class BrowserCaptureService(DeskDb db, IDataProtectionProvider protection
 
 public static class CaptureRules
 {
+    public static List<LeadInput> PreparePeople(PeopleCaptureInput input)
+    {
+        if (input.People == null || input.People.Count is < 1 or > 100) throw new DeskError("Capture between 1 and 100 people from the current results page.");
+        if (!Uri.TryCreate(input.SourceUrl, UriKind.Absolute, out var source) || source.Scheme != "https" || source.Host != "www.linkedin.com" || source.UserInfo != "" || source.Port != 443 || source.AbsolutePath.TrimEnd('/') != "/search/results/people") throw new DeskError("Bulk capture requires a LinkedIn People results page.");
+        var result = new List<LeadInput>();
+        foreach (var person in input.People)
+        {
+            if (person == null || string.IsNullOrWhiteSpace(person.Name) || person.Name.Length > 160 || person.SourceText == null || person.SourceText.Length > 6000 || person.SourceText.Trim().Length < 3) throw new DeskError("Each result needs a name and the displayed source text.");
+            var text = Normalize(person.SourceText);
+            if (!text.Contains(Normalize(person.Name), StringComparison.OrdinalIgnoreCase)) throw new DeskError("A captured name does not match its result card.");
+            if (!Uri.TryCreate(person.LinkedInUrl, UriKind.Absolute, out var profile) || profile.Host is not ("www.linkedin.com" or "linkedin.com") || profile.Scheme != "https" || profile.UserInfo != "" || profile.Port != 443 || !Regex.IsMatch(profile.AbsolutePath, @"^/in/[^/]+/?$")) throw new DeskError("Each person needs their own LinkedIn profile URL.");
+            string Fact(string? value, int max) => !string.IsNullOrWhiteSpace(value) && value.Length <= max && text.Contains(Normalize(value), StringComparison.OrdinalIgnoreCase) ? value.Trim() : "";
+            var lead = new LeadInput(Name: person.Name.Trim(), Title: Fact(person.Title, 250), Company: Fact(person.Company, 200), City: Fact(person.City, 120), LinkedInUrl: Leads.Url(person.LinkedInUrl, true), CategoryId: "general", Signal: "None", Stage: "New", Source: "LinkedIn people results · user-triggered capture", SourceUrl: source.GetLeftPart(UriPartial.Path), Notes: "Captured from a displayed search result. Not verified; buying intent and current employer have not been inferred.\n\n" + person.SourceText.Trim(), Approved: false, Checks: new());
+            Leads.Validate(lead); result.Add(lead);
+        }
+        return result;
+    }
     public static bool Duplicate(Lead existing, LeadInput input) => Leads.Duplicate(existing, input) ||
         (input.SourceUrl != "" && existing.SourceUrl == input.SourceUrl && existing.Name.Equals(input.Name, StringComparison.OrdinalIgnoreCase));
     static string Normalize(string text) => Regex.Replace(text, @"\s+", " ").Trim();

@@ -10,6 +10,11 @@ import {
   followUpUtc,
 } from "./lib";
 describe("CSV ingestion", () => {
+  it("imports the browser capture CSV headings without manual mapping", () => {
+    const csv='\uFEFF"Name","Job title","Company","City","LinkedIn URL","Source URL","Notes"\r\n"Asha Test","Website Developer","","Mumbai, India","https://www.linkedin.com/in/asha","https://www.linkedin.com/search/results/people/","Displayed result\nPast: Developer at Example Company"';
+    const parsed=parseCsv(csv);const [row]=mapCsv(parsed.rows,parsed.mapping,"general","Lead Desk capture CSV");
+    expect(row.name).toBe("Asha Test");expect(row.title).toBe("Website Developer");expect(row.city).toBe("Mumbai, India");expect(row.linkedInUrl).toBe("https://www.linkedin.com/in/asha");expect(row.sourceUrl).toBe("https://www.linkedin.com/search/results/people/");expect(row.notes).toContain("Past: Developer");expect(row.email).toBe("");expect(row.approved).toBe(false);expect(row.signal).toBe("None");
+  });
   it("reads LinkedIn exports including their introductory notes", () => {
     const text =
       "Notes:\nExport of connections\n\nFirst Name,Last Name,URL,Email Address,Company,Position,Connected On\nJane,Doe,https://www.linkedin.com/in/jane,,Acme,Founder,01 Nov 2026";

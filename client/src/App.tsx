@@ -405,6 +405,7 @@ function SharedIntegrations({ ctx }: { ctx: Context }) {
       <h3>LinkedIn · {ctx.integrations.linkedin && !ctx.integrations.linkedin.expired ? "Connected" : "Not connected"}</h3>
       <p className="muted">LinkedIn confirms the connected account’s identity. People searches open in your own browser session. Profile capture uses explicitly selected text; messages are sent manually.</p>
       <h3>One-click browser capture</h3>
+      <p className="muted">On LinkedIn People search results, click the pinned LD icon once to add all identifiable results from that page. Existing leads are skipped. New records stay unapproved. Right-click the page to show optional hover buttons; the result tab also offers a CSV download.</p>
       <p className="muted">Download and extract the extension, then load it in Chrome or Edge using Developer mode → Load unpacked. Enter this showcase URL in the extension setup and ask the owner for a pairing code generated in the local showcase controls. Pairing a different extension replaces the previous showcase pairing.</p>
       <a className="button secondary" href="/downloads/lead-desk-capture.zip" download><ArrowDownToLine size={15} /> Download extension</a>
       <p className="muted">API keys, connection changes and pairing-code controls are available to the owner in the local app.</p>

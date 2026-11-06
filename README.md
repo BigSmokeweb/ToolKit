@@ -4,6 +4,18 @@ A working React + ASP.NET Core 10 application based on the supplied Claude artif
 
 ## Public live showcase
 
+### Bulk capture from People results (extension 1.2+)
+
+With the extension paired, open a LinkedIn **People** results page and click the pinned **LD** icon once. It imports the identifiable, currently rendered result cards on that page (up to 100), skips duplicate profile URLs and opens a result tab with added/existing counts and links to saved leads. It does not scroll, paginate, open profiles, read contact information hidden behind another page, or send messages. Names without accessible profile links are skipped. LinkedIn DOM changes can affect extraction; missing or ambiguous fields stay blank, with the displayed card text retained in notes for review.
+
+These bulk records start **New**, **unapproved**, with zero verified checks, **no buying signal** and the **Any other search** category. Bulk capture makes no Gemini calls. A `Past:` snippet is never treated as the current employer. Review and categorize records in Lead Desk.
+
+Optional hover controls: right-click an empty part of a People results page and choose **Show Lead Desk hover / Add all buttons**. Hover a result to add that person, or click the floating **Add all to Lead Desk** button. Close the controls with ×. Controls are activated explicitly and have no scheduled or background capture. The result tab can also **Download captured people as CSV**; this CSV is compatible with Lead Desk’s existing column mapping and import preview. Direct capture does not need a CSV upload.
+
+For an existing unpacked installation, click **Reload** on Lead Desk Capture at `chrome://extensions`; do not remove/reinstall it. The existing extension ID, pairing token and original Gemini/LinkedIn integrations are preserved. The extension still uses only `activeTab` access after an explicit action, with no permanent LinkedIn host permission. LinkedIn restricts third-party extensions that copy profile data or change its site, so using this feature may risk account restriction: https://www.linkedin.com/help/linkedin/answer/a1340567/automated-activity-on-linkedin.
+
+Test extraction and CSV output with `node --test extension/people.test.mjs` after `npm ci` in `client`; the fixtures cover duplicate profile links, hidden cards, mutual-connection names, missing fields, past-employer snippets, CSV escaping and bounds. The API suite separately verifies atomic batches, paired-token authorization, repeat capture and default review state.
+
 Run `scripts\Start-Showcase.ps1` after building and starting the local app. Requires Node 22+ (with `node:sqlite`), .NET 10 and an internet connection. The script downloads the official Cloudflare tunnel binary if needed and prints a public HTTPS URL. This is a temporary demonstration link: keep this computer awake; restarting the tunnel creates a different address. It is not permanent production hosting.
 
 The showcase starts a separate .NET instance at `http://127.0.0.1:5084`, with a new database under ignored `artifacts/showcase-data`. It copies only the encrypted integration credentials, encryption key ring and the connected LinkedIn identity. **Existing leads, searches, messages, team members, audit activity and AI history are not copied.** Showcase records persist independently between restarts. Your original workspace at `https://localhost:7443` remains unchanged. Integration changes in the original workspace are not automatically synchronized into an existing showcase.
@@ -41,7 +53,7 @@ The server runs in the terminal until Ctrl+C. It binds only to loopback by defau
 
 ## One-click browser capture
 
-The `extension/` folder contains a Manifest V3 extension for Chrome and Edge. It captures **only text explicitly selected by the user** on a LinkedIn profile or individual post. It does not crawl pages, read cookies/passwords, or send LinkedIn messages. It is independent of the LinkedIn OAuth identity connection.
+The `extension/` folder contains a Manifest V3 extension for Chrome and Edge. It supports explicitly triggered bulk capture from displayed People result cards and selected-text capture from an individual LinkedIn profile or post. It does not crawl pages, read cookies/passwords, or send LinkedIn messages. It is independent of the LinkedIn OAuth identity connection.
 
 1. Open **Settings → Integrations → Browser capture** in Lead Desk. Download the ZIP, or use this checkout's `extension` folder directly.
 2. In Chrome open `chrome://extensions` (Edge: `edge://extensions`), enable Developer mode, choose **Load unpacked**, and select the folder containing `manifest.json`. Install in the browser where you will view LinkedIn.
@@ -49,7 +61,7 @@ The `extension/` folder contains a Manifest V3 extension for Chrome and Edge. It
 4. Pin the LD toolbar icon. Select a person's name, headline/company, location and relevant post text, then click LD. Alternatively, right-click that selection and choose **Save selected text to Lead Desk**. A result tab shows progress and the saved lead.
 5. Gemini suggests whether the person is a potential buyer, a professional partner or unclear, chooses a service category, and extracts fields supported by the selection. Source URL, evidence, fit score and an assessment are saved. Unknown contact details remain empty. Duplicates reopen the existing record. Newly captured leads are always **New**, **unapproved** and **unverified**. Review before outreach.
 
-Pairing is stored server-side as an encrypted credential with a hashed token and extension ID. The extension stores its token in trusted local extension storage, separate from the Gemini key and LinkedIn token. **Revoke access** in Lead Desk immediately disables that token. Capture-specific routes require the paired token and extension ID; ordinary website origins are rejected. The selection is sent to your local server and then your configured Gemini provider only when you invoke capture. Temporary capture results use extension session storage.
+Pairing is stored server-side as an encrypted credential with a hashed token and extension ID. The extension stores its token in trusted local extension storage, separate from the Gemini key and LinkedIn token. **Revoke access** in Lead Desk immediately disables that token. Capture-specific routes require the paired token and extension ID; ordinary website origins are rejected. For individual capture, the selection is sent to your local server and then Gemini when invoked. Bulk People capture goes only to your paired server and makes no AI requests. Temporary capture results use extension session storage.
 
 `npm run build` packages eight whitelisted extension files into `client/public/downloads/lead-desk-capture.zip`, then Vite includes the ZIP in the app build. The generated ZIP is ignored by Git. No database, API key or runtime settings are packaged. The extension has been scoped to the two local demo addresses; hosted deployment requires a deliberate host-permission/configuration update.
 
@@ -71,7 +83,7 @@ No API key is placed in React, browser storage or exported CSVs. Secret inputs a
 
 ## Connect your personal LinkedIn account later
 
-**You can already test LinkedIn search links without this connection.** OAuth links basic profile information for the member who authorizes it. The app requests only `openid profile email`. It does not request posting access or implement automated LinkedIn messaging/invites/search scraping.
+**You can already test LinkedIn search links without this connection.** OAuth links basic profile information for the member who authorizes it. The app requests only `openid profile email`. It does not request posting access or implement automated LinkedIn messaging/invites or background crawling.
 
 1. Create an app in the [LinkedIn Developer Portal](https://www.linkedin.com/developers/apps). LinkedIn may require a company-page association for the developer app; the member who signs into the app can still be your personal account.
 2. Request **Sign In with LinkedIn using OpenID Connect** under Products.

@@ -5,6 +5,7 @@ const files = [
   "manifest.json",
   "background.js",
   "capture.mjs",
+  "people.mjs",
   "options.html",
   "options.js",
   "result.html",

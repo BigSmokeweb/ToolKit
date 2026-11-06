@@ -8,7 +8,7 @@ foreach($kind in @('gateway','tunnel','showcase')){
  if(-not $processId){continue}
  $process=Get-Process -Id $processId -ErrorAction SilentlyContinue
  if($process){
-  if($process.StartTime.ToUniversalTime().ToString('O') -ne $started){throw "Process ID $processId was reused. Refusing to stop another process."}
+  if($process.StartTime.ToUniversalTime().Ticks -ne ([DateTime]$started).ToUniversalTime().Ticks){throw "Process ID $processId was reused. Refusing to stop another process."}
   Stop-Process -Id $processId
  }
 }
